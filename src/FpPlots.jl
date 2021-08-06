@@ -1,5 +1,16 @@
 include("FpOutput.jl")
 
+@recipe function f(output::FlexpartOutput)
+    if hasfield2d(output)
+        attr = attrib(output.ncvar)
+        selected = output.selected
+        title --> "$(attr["name"]) - $(haskey(attr, "long_name") ? attr["long_name"] : nothing) [$(attr["units"])] 
+        time = $(selected[:time]) height = $(selected[:height])"
+        (output.lons, output.lats, output.dataset' .|> log10)
+    else
+        error("The dataset must be 2D")
+    end
+end
 # function plot_filtered_grid(file, timestep)
 #     rellon, rellat = relloc(file)
 #     lon, lat, conc = filtered_fields(file, timestep)

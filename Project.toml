@@ -5,15 +5,15 @@ version = "0.1.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-NetCDF = "30363a11-5582-574a-97bb-aa9a979735b9"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 
 [compat]
 julia = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
 
 [targets]
 test = ["Test"]
