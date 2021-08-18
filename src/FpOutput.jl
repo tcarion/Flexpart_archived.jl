@@ -36,6 +36,18 @@ hasfield2d(output::FlexpartOutput) = output.dataset isa Matrix
 
 hasselection(output::FlexpartOutput) = output.ncvar !== nothing
 # isspatial(output::FlexpartOutput) = (length(size(output.field)) == 2)
+function variables2d(output::FlexpartOutput)
+    variables = keys(output.ncdataset)
+    inds = findall( x ->
+        try 
+            size(output.ncdataset[x])[1:2] == (length(output.lons), length(output.lats))
+        catch
+            false
+        end,
+        variables
+        )
+    variables[inds]
+end
 
 function remdim(output::FlexpartOutput)
     hasselection(output) &&
@@ -138,6 +150,12 @@ function select!(output::FlexpartOutput, dims::Dict)
     indices = []
     for (k,v) in dims
         v = try
+            v = try
+                parse(Float64, v)
+            catch
+                v
+            end
+            # @bp
             d = adims[k][1]
             typev = typeof(v)
             typed = typeof(d)
@@ -145,7 +163,7 @@ function select!(output::FlexpartOutput, dims::Dict)
             typed = typed <: AbstractFloat ? Float64 : typed
             typev == typed ?
                 v : 
-                DateTime(v, "yyyymmddTHHMMSS")
+                parse_date([(v, "yyyymmddTHHMMSS"), (v[1:19], "yyyy-mm-ddTHH:MM:SS")])
         catch
             error("Wrong type to be selected")
         end
@@ -159,6 +177,24 @@ function select!(output::FlexpartOutput, dims::Dict)
     end
     ndims = NamedTuple{Tuple(keys(dims) |> collect)}(indices)
     select!(output, ndims)
+end
+
+function parse_date(args::Vector{Tuple{String, String}})
+    # formats = ["yyyymmddTHHMMSS", "yyyy-mm-ddTHH:MM:SS"]
+    tried = []
+    err = nothing
+    for arg in args
+        t = try
+            DateTime(arg...)
+        catch ex
+            err = ex
+            nothing
+        end
+        !isnothing(t) && push!(tried, t)
+    end
+
+    length(tried) == 0 && throw(err)
+    tried[1]
 end
 
 function find_ncf()
@@ -205,12 +241,25 @@ function deltamesh(lons, lats)
     dy = unique(round.(dys, digits=5))
 
     if (length(dx) != 1) || (length(dy) != 1)
-        throw(ErrorException("mesh is not uniform"))
+        error("mesh is not uniform")
     end
 
     dx[1], dy[1]
 end
 
+function areamesh(lons, lats)
+    min_lon = minimum(lons)
+    max_lon = maximum(lons)
+    if min_lon > 180 || max_lon > 180
+        min_lon -= 360
+        max_lon -= 360
+    end
+    if min_lon < -180 || max_lon < -180
+        min_lon += 360
+        max_lon += 360
+    end
+    [maximum(lats), min_lon, minimum(lats), max_lon]
+end
 # conc(file::String) = getvar(file, "spec001_mr")[:]
 # conc(file::String, timestep::Integer) = conc(file)[:,:,1,timestep,1,1]
 
@@ -242,13 +291,13 @@ end
 # filtered_fields(timestep::Integer) = ncf_empty(filtered_fields, (timestep))
 
 function filter_fields(lon, lat, field)
-    if size(field) != (length(lon), length(lat)) error("dimension mismatch : size(conc) == (length(lon), length(lat))") end
+    if size(field) != (length(lon), length(lat)) error("dimension mismatch : size(field) == (length(lon), length(lat))") end
     mask = (!).(isapprox.(0., field))
 
     mg_lon = lon .* ones(length(lat))'
     mg_lat = lat' .* ones(length(lon))
 
-    return mg_lon[mask], mg_lat[mask], conc[mask]
+    return mg_lon[mask], mg_lat[mask], field[mask]
 end
 
 function relloc(file)

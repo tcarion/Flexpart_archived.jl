@@ -3,6 +3,7 @@ module Flexpart
 using Dates
 using NCDatasets
 using RecipesBase
+# using Debugger
 # using PyPlot
 
 global FP_DIR = pwd()
@@ -32,11 +33,13 @@ export
     update_available,
     write,
     write_options, area2outgrid, format, set_heights,
-    find_ncf,
-    all_dataset,
-    mesh,
-    conc,
-    conc_diskarray
-
-
+    FlexpartOutput,
+    attrib,
+    variables2d,
+    select!,
+    deltamesh,
+    areamesh,
+    relloc,
+    start_dt,
+    end_dt
 end

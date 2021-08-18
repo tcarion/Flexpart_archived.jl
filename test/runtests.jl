@@ -14,6 +14,7 @@ using Dates
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
 @testset "Flexpart.jl" begin
     filename = "/home/tcarion/rocourt_project/results/188899-0201-0301_2e6/grid_conc_20200201000000_nest.nc"
+    filename = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/nested_grid/output/grid_conc_20200101000000_nest.nc"
     filename2 = "/home/tcarion/rocourt_project/results/188898-0101_0201_2e6/grid_conc_20200101000000_nest.nc"
     Flexpart.relloc(filename)
     Flexpart.start_dt(filename)
