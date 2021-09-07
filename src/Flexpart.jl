@@ -3,37 +3,57 @@ module Flexpart
 using Dates
 using NCDatasets
 using RecipesBase
+using DataStructures
 # using Debugger
 # using PyPlot
+
+const FlexpartPath = String
+
+struct FlexpartDir
+    path::FlexpartPath
+    # FlexpartDir(path::String) = is_fp_dir(path) && new(path)
+    FlexpartDir(path::String) = new(abspath(path))
+end
 
 global FP_DIR = pwd()
 # const FP_DIR = "/home/tcarion/rocourt_project/test1"
 
-OPTIONS_DIR = "options"
-OUTPUT_DIR = "output"
-global AVAILABLE = joinpath(FP_DIR, "AVAILABLE")
+const OPTIONS_DIR = "options"
+const OUTPUT_DIR = "output"
+const AVAILABLE = "AVAILABLE"
+const PATHNAMES = "pathnames"
+
+NEEDED_FILES = [OPTIONS_DIR, OUTPUT_DIR, AVAILABLE, PATHNAMES]
 
 global NCF_OUTPUT = ""
 
-# include("FpOption.jl")
-include("FpIO.jl")
-include("FpPlots.jl")
-
-function set_fp_dir(dir)
-    global FP_DIR = dir
-    global AVAILABLE = joinpath(FP_DIR, "AVAILABLE")
+function is_fp_dir(path::FlexpartPath)
+    files = readdir(path)
+    for needed in NEEDED_FILES
+        needed in files || error("$path is not a flexpart directory")
+    end
+    true
 end
 
+include("FpIO.jl")
+include("FpPlots.jl")
+include("Flexextract.jl")
+
 export
-    Releases_ctrl,
-    Release, 
-    Outgrid,
-    OutgridN,
-    Command,
-    update_available,
-    write,
-    write_options, area2outgrid, format, set_heights,
+    FlexControl,
+    FlexpartDir,
+    FlexpartOptions,
     FlexpartOutput,
+    set,
+    ncf_files,
+    # Releases,
+    # Releases_ctrl,
+    # Release,
+    # Outgrid,
+    # OutgridN,
+    # Command,
+    update_available,
+    write_options, area2outgrid, format,
     attrib,
     variables2d,
     select!,
@@ -41,5 +61,6 @@ export
     areamesh,
     relloc,
     start_dt,
-    end_dt
+    end_dt,
+    namelist2dict
 end

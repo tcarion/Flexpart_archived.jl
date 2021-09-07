@@ -12,10 +12,34 @@ using Dates
 # @show Flexpart.conc(9)
 # Flexpart.fields(9)
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
-@testset "Flexpart.jl" begin
-    filename = "/home/tcarion/rocourt_project/results/188899-0201-0301_2e6/grid_conc_20200201000000_nest.nc"
-    filename = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/nested_grid/output/grid_conc_20200101000000_nest.nc"
-    filename2 = "/home/tcarion/rocourt_project/results/188898-0101_0201_2e6/grid_conc_20200101000000_nest.nc"
+# @testset "Flexpart.jl" begin
+    path = "./test/fp_template"
+    path = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/multheights"
+    fpdir = FlexpartDir(path)
+
+    fepath = "/home/tcarion/flexpart/flex_extract_v7.1.2"
+    control = joinpath(fepath, "Run", "Control", Flexpart.FLEX_DEFAULT_CONTROL)
+    control = "./test/fe_template/CONTROL_OD.OPER.FC.eta.highres.app"
+    ###### TEST FLEXPART OPTIONS ######
+    fpoptions = FlexpartOptions(path)
+    fpoptions["COMMAND"][:command][:ldirect] = 9
+    area = [50, 4, 52, 6]
+    newv = area2outgrid(area)
+    set(fpoptions["OUTGRID"][:outgrid], newv)
+    write(fpoptions, pwd())
+
+    ###### TEST FLEXPART OUTPUTS ######
+    nested_name = ncf_files(path, onlynested=false)[3]
+    nested_output = FlexpartOutput(nested_name)
+    Flexpart.select!(nested_output, "spec001_mr");
+    Flexpart.select!(nested_output, (time=:, height=1, pointspec=1, nageclass=1));
+    out_daily = Flexpart.write_daily_average!(nested_output, copy=false)
+
+    ###### TEST FLEXEXTRACT ######
+    fcontrol = FlexControl(control)
+
+    close(nested_output)
+    ###### TEST FLEXPART OLD ######
     Flexpart.relloc(filename)
     Flexpart.start_dt(filename)
     Flexpart.times_dt(filename)
@@ -46,4 +70,4 @@ using Dates
     Flexpart.close(output1)
     Flexpart.close(output2)
 
-end
+# end

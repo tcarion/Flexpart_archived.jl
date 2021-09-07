@@ -1,50 +1,65 @@
 include("FpOption.jl")
 
 
-function write(relctrl::Releases_ctrl, rels::Vector{Release})
+# function write(relctrl::Releases_ctrl, rels::Vector{Release})
+#     (tmppath, tmpio) = mktemp()
+
+#     write(tmpio, relctrl)
+#     write(tmpio, rels)
+
+#     close(tmpio)
+#     dest = joinpath(FP_DIR, OPTIONS_DIR, "RELEASES")
+
+#     mv(tmppath, dest, force=true)
+# end
+
+function Base.write(flexpartoption::FlexpartOptions, newpath::String = "")
+    options_dir = newpath == "" ? joinpath(flexpartoption.dir.path, OPTIONS_DIR) : joinpath(newpath, OPTIONS_DIR)
+    try 
+        mkdir(options_dir)
+    catch
+    end
+
+    for (name, options) in flexpartoption.options
+        filepath = joinpath(options_dir, name)
+        write(options, filepath)
+    end
+end
+function write(options::OptionsGroup, path::String)
     (tmppath, tmpio) = mktemp()
 
-    write(tmpio, relctrl)
-    write(tmpio, rels)
+    for line in format(options) Base.write(tmpio, line*"\n") end
 
     close(tmpio)
-    dest = joinpath(FP_DIR, OPTIONS_DIR, "RELEASES")
+    dest = path
 
     mv(tmppath, dest, force=true)
 end
+# function write(file::IOStream, options::Vector{<:FpOption})
+#     for option in options write(file, option) end
+# end
 
-function write(outgrid::Outgrid)
-    (tmppath, tmpio) = mktemp()
+# function write(outgrid::OutgridN)
+#     (tmppath, tmpio) = mktemp()
 
-    write(tmpio, outgrid)
+#     write(tmpio, outgrid)
 
-    close(tmpio)
-    dest = joinpath(FP_DIR, OPTIONS_DIR, "OUTGRID")
+#     close(tmpio)
+#     dest = joinpath(FP_DIR, OPTIONS_DIR, "OUTGRID_NEST")
 
-    mv(tmppath, dest, force=true)
-end
+#     mv(tmppath, dest, force=true)
+# end
 
-function write(outgrid::OutgridN)
-    (tmppath, tmpio) = mktemp()
+# function write(outgrid::Command)
+#     (tmppath, tmpio) = mktemp()
 
-    write(tmpio, outgrid)
+#     write(tmpio, outgrid)
 
-    close(tmpio)
-    dest = joinpath(FP_DIR, OPTIONS_DIR, "OUTGRID_NEST")
+#     close(tmpio)
+#     dest = joinpath(FP_DIR, OPTIONS_DIR, "COMMAND")
 
-    mv(tmppath, dest, force=true)
-end
-
-function write(outgrid::Command)
-    (tmppath, tmpio) = mktemp()
-
-    write(tmpio, outgrid)
-
-    close(tmpio)
-    dest = joinpath(FP_DIR, OPTIONS_DIR, "COMMAND")
-
-    mv(tmppath, dest, force=true)
-end
+#     mv(tmppath, dest, force=true)
+# end
 
 function dateYY(d)
     y = Dates.year(d)
@@ -86,24 +101,6 @@ function write_formated_av(formated_av::Vector{String})
             write(f, l*"\n")
         end
     end
-end
-
-function namelist2dict(filepath)
-    fieldtype = Union{String, Dict, SubString{String}}
-    d = Dict{Symbol, fieldtype}()
-    f = open(filepath, "r")
-    header = ""
-    for line in eachline(f)
-        if !((m = match(r"\s*(.*?)\s*=\s*([^\s,]*)\s*,", line)) |> isnothing) #captures the field name in group 1 and the value in group 2
-            dict2fill = header |> isempty ? d : d[Symbol(header)]
-            push!(dict2fill, m.captures[1] |> Symbol => m.captures[2])
-        elseif !((m = match(r"\&(\w*)", line)) |> isnothing) #captures the name of the header in group 1
-            push!(d, m.captures[1] |> Symbol => Dict{Symbol, fieldtype}())
-            header = m.captures[1]
-        end
-    end
-    close(f)
-    d
 end
 
 function option2dict(opt_name)

@@ -20,9 +20,23 @@ mutable struct FlexpartOutput
 end
 
 function FlexpartOutput(filename::String)
+    filename = abspath(filename)
     lons, lats = mesh(filename)
     FlexpartOutput(filename, lons, lats, NCDataset(filename, "r"), nothing, nothing, Dict(), MetaData(filename))
 end
+
+FlexpartOutput(fpdir::FlexpartDir, name::String) = FlexpartOutput(joinpath(fpdir.path, OUTPUT_DIR, name))
+FlexpartOutput(path::String, name::String) = FlexpartOutput(FlexpartDir(path), name)
+
+function ncf_files(fpdir::FlexpartDir; onlynested=false)
+    out_files = readdir(joinpath(fpdir.path, OUTPUT_DIR))
+    f = onlynested ? x -> occursin("nest.nc", x) :  x ->  occursin(".nc", x)
+    files = filter(f, out_files)
+    [joinpath(fpdir.path, OUTPUT_DIR, x) for x in files]
+end
+
+ncf_files(path::String; onlynested=false) = ncf_files(FlexpartDir(path), onlynested=onlynested)
+
 
 function MetaData(filename::String)
     NCDataset(filename, "r") do ds
@@ -155,12 +169,17 @@ function select!(output::FlexpartOutput, dims::Dict)
             catch
                 v
             end
-            # @bp
             d = adims[k][1]
+            v, d = try
+                convert(Float64, v), convert(Float64, d)
+            catch
+                v, d
+            end
+            # @bp
             typev = typeof(v)
             typed = typeof(d)
-            typev = typev <: AbstractFloat ? Float64 : typev
-            typed = typed <: AbstractFloat ? Float64 : typed
+            # typev = typev <: AbstractFloat ? Float64 : typev
+            # typed = typed <: AbstractFloat ? Float64 : typed
             typev == typed ?
                 v : 
                 parse_date([(v, "yyyymmddTHHMMSS"), (v[1:19], "yyyy-mm-ddTHH:MM:SS")])
@@ -197,17 +216,17 @@ function parse_date(args::Vector{Tuple{String, String}})
     tried[1]
 end
 
-function find_ncf()
-    out_dir = joinpath(FP_DIR, OUTPUT_DIR)
-    out_files = readdir(out_dir)
-    ncf = filter(x -> occursin(".nc", x), out_files)
-    global NCF_OUTPUT = joinpath(out_dir, ncf[1])
-    joinpath.(out_dir, ncf)
-end
+# function find_ncf()
+#     out_dir = joinpath(FP_DIR, OUTPUT_DIR)
+#     out_files = readdir(out_dir)
+#     ncf = filter(x -> occursin(".nc", x), out_files)
+#     global NCF_OUTPUT = joinpath(out_dir, ncf[1])
+#     joinpath.(out_dir, ncf)
+# end
 
-function outclear()
-    global NCF_OUTPUT = ""
-end
+# function outclear()
+#     global NCF_OUTPUT = ""
+# end
 
 # function ncf_empty(f, args=nothing::Union{Nothing, Tuple})
 #     global NCF_OUTPUT
@@ -396,27 +415,28 @@ end
 #     ncwrite(new_dataset, file, name)
 # end
 
-function write_daily_average(output::FlexpartOutput; copy = true)
-    name = "daily_av"
+function write_daily_average!(output::FlexpartOutput; copy = true)
+    name = NCDatasets.name(output.ncvar)*"_daily_av"
     filename = output.filename
     if copy
-        newfn = split(output.filename, ".")
-        newfn = newfn[1] * "_copy." * newfn[2]
+        newfn = split(basename(output.filename), ".")
+        newfn = joinpath(dirname(output.filename), newfn[1] * "_daily_av" * "." * newfn[2])
         filename = cp(output.filename, newfn, force=true)
     end
     daily_ds, days = daily_average(output)
+
+    attr = attrib(output.ncvar)
+    toadd = completedim(output)
     # days_sec = Int32.(Dates.value.(days .- days[1]) .* 24 * 3600)
     copy || close(output.ncdataset)
     ds = NCDataset(filename, "a")
     # defDim(ds, "day", length(days))
     defVar(ds, "day", days, ("day",))
 
-    attr = attrib(output.ncvar)
-    toadd = completedim(output)
-    
     defVar(ds,name,convert.(Float64, daily_ds),("lon","lat","day"), attrib = merge(symb2string.((attr, toadd))...))
     close(ds)
-    FlexpartOutput(filename)
+    filename
+    # FlexpartOutput(filename)
 end
 
 function write_worst_day(output::FlexpartOutput; copy=true)
@@ -425,7 +445,7 @@ function write_worst_day(output::FlexpartOutput; copy=true)
     filename = output.filename
     if copy
         newfn = split(output.filename, ".")
-        newfn = newfn[1] * "_copy." * newfn[2]
+        newfn = newfn[1] * "_worst_day" * "_copy." * newfn[2]
         filename = cp(output.filename, newfn, force=true)
     end
     dsworst, indworst = findworst_day(output.dataset)
