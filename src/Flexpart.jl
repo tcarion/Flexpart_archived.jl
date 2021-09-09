@@ -4,6 +4,7 @@ using Dates
 using NCDatasets
 using RecipesBase
 using DataStructures
+using CSV
 # using Debugger
 # using PyPlot
 
@@ -44,8 +45,15 @@ export
     FlexpartDir,
     FlexpartOptions,
     FlexpartOutput,
-    set,
+    FlexextractDir,
+    FeSource,
+    MarsRequest,
+    prepare,
+    set!,
+    set_area!,
+    set_steps!,
     ncf_files,
+    retrieve,
     # Releases,
     # Releases_ctrl,
     # Release,

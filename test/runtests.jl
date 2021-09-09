@@ -12,15 +12,14 @@ using Dates
 # @show Flexpart.conc(9)
 # Flexpart.fields(9)
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
+
 # @testset "Flexpart.jl" begin
     path = "./test/fp_template"
     path = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/multheights"
     fpdir = FlexpartDir(path)
-
-    fepath = "/home/tcarion/flexpart/flex_extract_v7.1.2"
-    control = joinpath(fepath, "Run", "Control", Flexpart.FLEX_DEFAULT_CONTROL)
-    control = "./test/fe_template/CONTROL_OD.OPER.FC.eta.highres.app"
+    ###################################
     ###### TEST FLEXPART OPTIONS ######
+    ###################################
     fpoptions = FlexpartOptions(path)
     fpoptions["COMMAND"][:command][:ldirect] = 9
     area = [50, 4, 52, 6]
@@ -28,17 +27,49 @@ using Dates
     set(fpoptions["OUTGRID"][:outgrid], newv)
     write(fpoptions, pwd())
 
+    ###################################
     ###### TEST FLEXPART OUTPUTS ######
-    nested_name = ncf_files(path, onlynested=false)[3]
+    ###################################
+    nested_name = ncf_files(path, onlynested=true)
     nested_output = FlexpartOutput(nested_name)
     Flexpart.select!(nested_output, "spec001_mr");
     Flexpart.select!(nested_output, (time=:, height=1, pointspec=1, nageclass=1));
     out_daily = Flexpart.write_daily_average!(nested_output, copy=false)
 
-    ###### TEST FLEXEXTRACT ######
-    fcontrol = FlexControl(control)
+    ###################################
+    ###### TEST FLEXEXTRACT ###########
+    ###################################
+    installpath = "/home/tcarion/flexpart/flex_extract_v7.1.2"
+    defaultcontrol = "./test/fe_template/CONTROL_OD.OPER.FC.eta.highres.app"
+    fepath = "test/fe_template/fedir"
+    pythonpath = "/opt/anaconda3/bin/python3"
 
-    close(nested_output)
+    fcontrol = FlexControl(defaultcontrol)
+    area = [52.2, 4, 49, 6]
+    fcontrol[:REQUEST] = 1
+    # set!(fcontrol, Dict(:CLASS => "foo", :ETA => 2))
+    set_area!(fcontrol, area)
+    set_steps!(fcontrol, DateTime("2021-09-05T00:00:00"), DateTime("2021-09-07T00:00:00"), 1)
+
+    fedir = FlexextractDir(fepath, fcontrol)
+    fesource = FeSource(installpath, pythonpath)
+    
+    proc = run(fedir, fesource, async = true)
+    # write(fcontrol, "test/fe_template/fe_output")
+
+    ###################################
+    ######## TEST MARSREQUESTS ########
+    ###################################
+    destmars = "test/fe_template/"
+    csvpath = "test/fe_template/fedir/input/mars_requests.csv"
+    requests = MarsRequest(csvpath)
+    write(destmars, [requests[1]])
+
+
+
+
+
+    
     ###### TEST FLEXPART OLD ######
     Flexpart.relloc(filename)
     Flexpart.start_dt(filename)

@@ -30,7 +30,7 @@ FlexpartOutput(path::String, name::String) = FlexpartOutput(FlexpartDir(path), n
 
 function ncf_files(fpdir::FlexpartDir; onlynested=false)
     out_files = readdir(joinpath(fpdir.path, OUTPUT_DIR))
-    f = onlynested ? x -> occursin("nest.nc", x) :  x ->  occursin(".nc", x)
+    f = onlynested ? x -> occursin(".nc", x) && occursin("nest", x) :  x ->  occursin(".nc", x)
     files = filter(f, out_files)
     [joinpath(fpdir.path, OUTPUT_DIR, x) for x in files]
 end

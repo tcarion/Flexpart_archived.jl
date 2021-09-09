@@ -296,7 +296,7 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01)
     )
 end
 
-function set(option::FpOption, newv::Dict{Symbol, <:Any})
+function set!(option::FpOption, newv::Dict{Symbol, <:Any})
     merge!(option, newv)
 end
 
