@@ -14,28 +14,29 @@ using Dates
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
 
 # @testset "Flexpart.jl" begin
-    path = "./test/fp_template"
+    fppath = "./test/fp_template"
     path = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/multheights"
     fpdir = FlexpartDir(path)
     ###################################
     ###### TEST FLEXPART OPTIONS ######
     ###################################
-    fpoptions = FlexpartOptions(path)
+    fpoptions = FlexpartOptions(fppath)
     fpoptions["COMMAND"][:command][:ldirect] = 9
     area = [50, 4, 52, 6]
     newv = area2outgrid(area)
-    set(fpoptions["OUTGRID"][:outgrid], newv)
+    set!(fpoptions["OUTGRID"][:outgrid], newv)
     write(fpoptions, pwd())
 
     ###################################
     ###### TEST FLEXPART OUTPUTS ######
     ###################################
-    nested_name = ncf_files(path, onlynested=true)
-    nested_output = FlexpartOutput(nested_name)
+    nested_name = ncf_files(fppath, onlynested=true)
+    nested_output = FlexpartOutput(nested_name[1])
     Flexpart.select!(nested_output, "spec001_mr");
     Flexpart.select!(nested_output, (time=:, height=1, pointspec=1, nageclass=1));
     out_daily = Flexpart.write_daily_average!(nested_output, copy=false)
-
+    close(nested_output)
+    
     ###################################
     ###### TEST FLEXEXTRACT ###########
     ###################################
