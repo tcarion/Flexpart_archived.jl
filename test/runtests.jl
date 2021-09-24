@@ -14,28 +14,83 @@ using Dates
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
 
 # @testset "Flexpart.jl" begin
-    fppath = "./test/fp_template"
-    path = "/home/tcarion/CBRN-dispersion-app/public/flexpart_runs/multheights"
-    fpdir = FlexpartDir(path)
+    ###################################
+    ###### TEST FLEXPART DIR ##########
+    ###################################
+    dirpath = "test/fp_dir_test"
+    newdir = Flexpart.create(dirpath)
+    fpdir = FlexpartDir(dirpath)
+    # pathnam = Flexpart.pathnames(newdir)
+    fpdir[:output]
+    fpdir[:input] = "./input"
+    fpdir[:input]
+    write(fpdir)
+
+    ###################################
+    ###### TEST FLEXPART INPUT ########
+    ###################################
+    inputdir = "test/fp_dir_test/input"
+    Flexpart.update_available(fpdir)
+
     ###################################
     ###### TEST FLEXPART OPTIONS ######
     ###################################
-    fpoptions = FlexpartOptions(fppath)
+    fpoptions = FlexpartOptions(dirpath)
     fpoptions["COMMAND"][:command][:ldirect] = 9
     area = [50, 4, 52, 6]
     newv = area2outgrid(area)
     set!(fpoptions["OUTGRID"][:outgrid], newv)
     write(fpoptions, pwd())
 
+    fopt = Flexpart.getnamelists(Flexpart.getdir(fpdir, :options))
+
+    comp = Flexpart.compare(
+        "/home/tcarion/.julia/dev/Flexpart/test/fp_dir_test/output/COMMAND.namelist",
+        "/home/tcarion/.julia/dev/Flexpart/test/fp_dir_test/output/COMMAND.namelist2")
+
+    # dirs = files[isdir.(files)]
     ###################################
     ###### TEST FLEXPART OUTPUTS ######
     ###################################
-    nested_name = ncf_files(fppath, onlynested=true)
-    nested_output = FlexpartOutput(nested_name[1])
-    Flexpart.select!(nested_output, "spec001_mr");
-    Flexpart.select!(nested_output, (time=:, height=1, pointspec=1, nageclass=1));
-    out_daily = Flexpart.write_daily_average!(nested_output, copy=false)
-    close(nested_output)
+    output_files = ncf_files(fpdir)
+    fpoutput = FlexpartOutput(output_files[1])
+    
+    var2d = Flexpart.variables2d(fpoutput)
+    vars = Flexpart.variables(fpoutput)
+    dims = Flexpart.remdim(fpoutput, "spec001_mr")
+    globattr = Flexpart.attrib(fpoutput)
+    specattrib = Flexpart.attrib(fpoutput, "spec001_mr")
+    adims = Flexpart.alldims(fpoutput, "spec001_mr")
+
+    spec001 = Flexpart.select(fpoutput, "spec001_mr");
+    oro = Flexpart.select(fpoutput, "ORO")
+
+    spec001_alltimes = Flexpart.select(fpoutput, "spec001_mr", (time=:, height=1, pointspec=1, nageclass=1))
+    spec001_2d_1 = Flexpart.select(fpoutput, "spec001_mr", 
+        Dict(:time=>adims[:time][4], :height=>adims[:height][2], :pointspec=>1, :nageclass=>1))
+
+    spec001_2d_2 = Flexpart.select(fpoutput, "spec001_mr", 
+        Dict(:time=>adims[:time][7], :height=>adims[:height][2], :pointspec=>1, :nageclass=>1))
+
+    spec001_2d_3 = Flexpart.select(fpoutput, "spec001_mr", 
+        Dict(:time=>adims[:time][7], :height=>:, :pointspec=>1, :nageclass=>1))
+
+    seltime = Flexpart.selected(spec001_alltimes)
+    sel = Flexpart.selected(spec001_2d)
+
+    dayav_error = Flexpart.daily_average(spec001)
+    dayav = Flexpart.daily_average(spec001_alltimes)
+
+    compdim = Flexpart.completedim(spec001_alltimes)
+
+    Flexpart.addable(spec001_2d_1, spec001_2d_2)
+    Flexpart.addable(spec001_2d_1, spec001_alltimes)
+
+    added = spec001_2d_1 + spec001_2d_2
+    diff = spec001_2d_1 - spec001_2d_2
+
+    Flexpart.write_daily_average(spec001, copy=true)
+
     
     ###################################
     ###### TEST FLEXEXTRACT ###########

@@ -10,23 +10,45 @@ using CSV
 
 const FlexpartPath = String
 
-struct FlexpartDir
+mutable struct FlexpartDir
     path::FlexpartPath
+    pathnames::OrderedDict{Symbol, String}
     # FlexpartDir(path::String) = is_fp_dir(path) && new(path)
-    FlexpartDir(path::String) = new(abspath(path))
+    function FlexpartDir(path::String)
+        pns = try
+            OrderedDict(name |> Symbol => p for (name, p) in zip(PATHNAMES_VALUES, pathnames(joinpath(path, PATHNAMES))))
+        catch e
+            if isa(e, SystemError)
+                DEFAULT_PATHNAMES
+            else
+                throw(e)
+            end
+        end
+        new(path, pns)
+    end
 end
-
-global FP_DIR = pwd()
-# const FP_DIR = "/home/tcarion/rocourt_project/test1"
+Base.show(io::IO, fpdir::FlexpartDir) = print(io, fpdir.path)
+Base.getindex(fpdir::FlexpartDir, name::Symbol) = fpdir.pathnames[name]
+function Base.setindex!(fpdir::FlexpartDir, value::String, name::Symbol)
+    fpdir.pathnames[name] = value
+end
 
 const OPTIONS_DIR = "options"
 const OUTPUT_DIR = "output"
+const INPUT_DIR = "input"
 const AVAILABLE = "AVAILABLE"
 const PATHNAMES = "pathnames"
+PATHNAMES_VALUES = ["options", "output", "input", "available"]
+
+DEFAULT_PATHNAMES = OrderedDict(
+    k |> Symbol => v for (k, v) in zip(PATHNAMES_VALUES, [
+        OPTIONS_DIR, OUTPUT_DIR, INPUT_DIR, AVAILABLE
+    ])
+)
 
 NEEDED_FILES = [OPTIONS_DIR, OUTPUT_DIR, AVAILABLE, PATHNAMES]
 
-global NCF_OUTPUT = ""
+const DEFAULT_FP_DIR = joinpath(@__DIR__, "flexpart_dir_template")
 
 function is_fp_dir(path::FlexpartPath)
     files = readdir(path)
@@ -36,6 +58,33 @@ function is_fp_dir(path::FlexpartPath)
     true
 end
 
+function create(name::String; force=false)
+    spl = splitpath(name)
+    path = length(spl) == 1 ? joinpath(pwd(), name) : name
+    !force && ispath(path) && error("$path already exists. force = true is required to remove existing dir")
+    cp(DEFAULT_FP_DIR, path, force=force)
+    FlexpartDir(path)
+end
+
+function pathnames(fpdir::FlexpartDir)
+    readlines(joinpath(fpdir.path, PATHNAMES))
+end
+
+function pathnames(path::String)
+    readlines(path)
+end
+
+getdir(fpdir::FlexpartDir, type::Symbol) = isempty(fpdir.pathnames) ? joinpath(fpdir.path, DEFAULT_PATH[type]) |> abspath : joinpath(fpdir.path, fpdir[type]) |> abspath
+
+function Base.write(fpdir::FlexpartDir)
+    open(joinpath(fpdir.path, PATHNAMES), "w") do f
+        for (k, v) in fpdir.pathnames
+            Base.write(f, v*"\n")
+        end
+    end
+end
+
+include("FpInput.jl")
 include("FpIO.jl")
 include("FpPlots.jl")
 include("Flexextract.jl")
@@ -60,15 +109,17 @@ export
     # Outgrid,
     # OutgridN,
     # Command,
+    select,
+    selected,
     update_available,
     write_options, area2outgrid, format,
     attrib,
     variables2d,
-    select!,
     deltamesh,
     areamesh,
     relloc,
     start_dt,
     end_dt,
-    namelist2dict
+    namelist2dict,
+    write
 end

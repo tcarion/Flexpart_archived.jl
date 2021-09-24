@@ -1,168 +1,15 @@
-# abstract type FpOption end
+struct NotNamelistError <: Exception
+    filename::String
+end
+Base.showerror(io::IO, e::NotNamelistError) = print("Namelist format not valid : ", e.filename)
 
-# import Base: write
-# mutable struct Command <: FpOption
-#     ldirect::Int
-#     ibdate::String
-#     ibtime::String
-#     iedate::String
-#     ietime::String
-#     loutstep::Int
-#     loutaver::Int
-#     loutsample::Int
-#     itsplit::Int
-#     lsynctime::Int
-#     ctl::Float64
-#     ifine::Int
-#     iout::Int
-#     ipout::Int
-#     lsubgrid::Int
-#     lconvection::Int
-#     lagespectra::Int
-#     ipin::Int
-#     ioutputforeachrelease::Int
-#     iflux::Int
-#     mdomainfill::Int
-#     ind_source::Int
-#     ind_receptor::Int
-#     mquasilag::Int
-#     nested_output::Int
-#     linit_cond::Int
-#     surf_only::Int
-#     cblflag::Int
-#     ohfields_path::String
-# end
-# Command(ibdate, ibtime, iedate, ietime) = 
-#     Command(1, ibdate, ibtime, iedate, ietime, 3600, 3600, 600, 99999999, 300, 3.0, 4, 9, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, "\"../../flexin/\"")
-# Command(start::DateTime, finish::DateTime) = Command(Dates.format(start, "yyyymmdd"), Dates.format(start, "HHMMSS"), Dates.format(finish, "yyyymmdd"), Dates.format(finish, "HHMMSS"))
-# function Command(dir::FlexpartDir)
-#     dr = namelist2dict(joinpath(dir.path, "options", "COMMAND"))[:COMMAND]
-#     d = Dict(k |> String |> lowercase |> Symbol => v for (k, v) in dr)
-#     fn = fieldnames(Command)
-#     fd = Dict(key => try
-#             parse(stype, d[key])
-#         catch
-#             d[key]
-#         end for (key, stype) in zip(fn, Command.types)
-#     )
-#     #     fd = Dict{Symbol, Any}()
-#     # for (key, i) in enumerate(fn)
-
-#     # end
-#     nt = NamedTuple{fn}([fd[key] for key in fn])
-#     Command(nt...)
-#     # Command(
-#     #     d[:ldirect],
-#     #     d[:ibdate],
-#     #     d[:ibtime],
-#     #     d[:iedate],
-#     #     d[:ietime],
-#     #     d[:loutstep],
-#     #     d[:loutaver],
-#     #     d[:loutsample],
-#     #     d[:itsplit],
-#     #     d[:lsynctime],
-#     #     d[:ctl],
-#     #     d[:ifine],
-#     #     d[:iout],
-#     #     d[:ipout],
-#     #     d[:lsubgrid],
-#     #     d[:lconvection],
-#     #     d[:lagespectra],
-#     #     d[:ipin],
-#     #     d[:ioutputforeachrelease],
-#     #     d[:iflux],
-#     #     d[:mdomainfill],
-#     #     d[:ind_source],
-#     #     d[:ind_receptor],
-#     #     d[:mquasilag],
-#     #     d[:nested_output],
-#     #     d[:linit_cond],
-#     #     d[:surf_only],
-#     #     d[:cblflag],
-#     #     d[:ohfields_path],
-#     # )
-# end
-
-# mutable struct Release <: FpOption
-#     idate1::String
-#     itime1::String
-#     idate2::String
-#     itime2::String
-#     lon1::Float64
-#     lon2::Float64
-#     lat1::Float64
-#     lat2::Float64
-#     z1::Float64
-#     z2::Float64
-#     zkind::Int
-#     mass::Float64
-#     parts::Int
-#     comment::String
-# end
-# Release(lon, lat, start::DateTime, finish::DateTime, z=50, mass=1.0, parts=1000, comment="Release 1") = 
-#     Release(
-#         Dates.format(start, "yyyymmdd"),
-#         Dates.format(start, "HHMMSS"),
-#         Dates.format(finish, "yyyymmdd"),
-#         Dates.format(finish, "HHMMSS"),
-#         lon,
-#         lon,
-#         lat,
-#         lat,
-#         z,
-#         z,
-#         1,
-#         mass,
-#         parts,
-#         comment
-#     )
-
-# mutable struct Releases_ctrl <: FpOption
-#     nspec::Int
-#     specnum_rel::Int
-# end
-    
-# mutable struct Releases <: FpOption
-#     releases_ctrl::Releases_ctrl
-#     release::Release
-# end
-# mutable struct Outgrid <: FpOption
-#     outlon0::Float64
-#     outlat0::Float64
-#     numxgrid::Int
-#     numygrid::Int
-#     dxout::Float64
-#     dyout::Float64
-#     outheights::Vector{Float64}
-# end
-# Outgrid(outlon0, outlat0, xgrid, ygrid, dxout, dyout) = Outgrid(outlon0, outlat0, xgrid, ygrid, dxout, dyout, [100])
-
-# mutable struct OutgridN <: FpOption
-#     outlon0n::Float64
-#     outlat0n::Float64
-#     numxgridn::Int
-#     numygridn::Int
-#     dxoutn::Float64
-#     dyoutn::Float64
-# end
-
-
-# FlexpartOptions(path::String)
-
-# struct FlexpartOptions
-#     command::Command
-#     releases::Releases
-#     outgrid::Outgrid
-#     outgridn::OutgridN
-# end
-
-const OptionName = Symbol
+const OptionHeader = Symbol
 const OptionFileName = String
 
-const FpOption = OrderedDict{Symbol, Any}
+const OptionBody = OrderedDict{Symbol, Any}
+const FpOptions = Vector{OptionBody}
 
-const OptionsGroup = Dict{Symbol, FpOption}
+const OptionsGroup = Dict{OptionHeader, FpOptions}
 
 const FileOptions = Dict{OptionFileName, OptionsGroup}
 
@@ -170,37 +17,77 @@ struct FlexpartOptions
     dir::FlexpartDir
     options::FileOptions
 end
-
-# const STR_TO_TYPE = Dict(
-#     "COMMAND" => Command,
-#     "RELEASE" => Release,
-#     "RELEASES_CTRL" => Releases_ctrl,
-#     "RELEASES" => Releases,
-#     "OUTGRID" => Outgrid,
-#     "OUTGRIDN" => OutgridN,
-# )
-
 const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
 
-function to_fpoption(path::FlexpartPath, name::OptionFileName)
-    dir = FlexpartDir(path)
+function to_fpoption(fpdir::FlexpartDir, name::OptionFileName)
+    # dir = FlexpartDir(path)
     name = name |> uppercase
-    dr = namelist2dict(joinpath(path, OPTIONS_DIR, name))
-    OptionsGroup(Symbol(key) => to_fpoption(dr[key], key) for key in keys(dr))
+    namelist2dict(joinpath(getdir(fpdir, :options), name))
+    # OptionsGroup(Symbol(key) => to_fpoption(dr[key], key) for key in keys(dr))
     # Tuple(fpoption)
 end
 
-function to_fpoption(dict_option, option::OptionName)
-    option = option |> String |> uppercase |> Symbol
-    FpOption(k |> String |> lowercase |> Symbol => v for (k, v) in dict_option)
+# function to_fpoption(dict_option, option::OptionName)
+#     option = option |> String |> uppercase |> Symbol
+#     FpOption(k |> String |> lowercase |> Symbol => v for (k, v) in dict_option)
+# end
+
+FlexpartOptions(path::FlexpartPath) = FlexpartOptions(FlexpartDir(path))
+# function FlexpartOptions(fpdir::FlexpartDir)
+#     FlexpartOptions(
+#         fpdir, 
+#         FileOptions(filename => to_fpoption(fpdir, filename) for filename in OPTION_FILE_NAMES)
+#     )
+# end
+function FlexpartOptions(fpdir::FlexpartDir)
+    FlexpartOptions(
+        fpdir, 
+        getnamelists(getdir(fpdir, :options))
+    )
+end
+Base.getindex(fp::FlexpartOptions, name::OptionFileName) = fp.options[name]
+function Base.setindex!(fp::FlexpartOptions, value, name::OptionFileName)
+    fp.options[name] = value
 end
 
-FlexpartOptions(path::FlexpartPath) = FlexpartOptions(
-    FlexpartDir(path),
-    FileOptions(filename => to_fpoption(path, filename) for filename in OPTION_FILE_NAMES)
-    )
+function add(fpoptions::FlexpartOptions, name::OptionFileName, header::OptionHeader, value)
+    optionbody = convert(OptionBody, value)
+    group = OptionsGroup(header => [optionbody])
+    fpoptions[name] = group
+end
 
-Base.getindex(fp::FlexpartOptions, name::OptionFileName) = fp.options[name]
+function getnamelists(path::String)
+    fileoptions = FileOptions()
+    for (root, dirs, files) in walkdir(path)
+        for file in files
+            rel = basename(relpath(path, root))
+            name = root == path ? file : joinpath(relpath(root, path), file)
+            absfile = joinpath(root, file)
+            dict = try
+                namelist2dict(absfile)
+            catch e
+                if e isa NotNamelistError
+                    nothing
+                else
+                    throw(e)
+                end
+            end
+            !isnothing(dict) && push!(fileoptions, name => dict)
+        end
+    end
+    fileoptions
+end
+
+# function getnamelists(pathinit::String, path::String)
+#     files = readdir(path, join=true)
+#     for file in files
+#         if isdir(file)
+#             getnamelists(pathinit, file)
+#         else
+            
+#         end
+#     end
+# end
 
 # function to_fpoption(dict_option, option::String)
 #     option = option |> uppercase
@@ -254,16 +141,33 @@ Base.getindex(fp::FlexpartOptions, name::OptionFileName) = fp.options[name]
 
 function format(options::OptionsGroup)::Vector{String}
     str = []
-    for (oname, fpoption) in options
-        header = oname |> string |> uppercase
-        str = push!(str, "&$(header)")
-        for (k, v) in fpoption
-            key = uppercase(String(k))
-            # val = v |> typeof <: Vector ? join(field, ",") : field
-            push!(str, " $key = $v,")
+    for (header, fpoptions) in options
+        for line in option2lines(header, fpoptions)
+            push!(str, line)
         end
-        push!(str, " /")
     end
+    str
+end
+
+function option2lines(header::Symbol, options::FpOptions) :: Vector{String}
+    head = header |> string |> uppercase
+    str = String[]
+    for option in options
+        push!(str, "&$(head)")
+        for line in body2lines(option)
+            push!(str, line)
+        end
+    end
+    str
+end
+function body2lines(body::OptionBody) :: Vector{String}
+    str = String[]
+    for (k, v) in body
+        key = uppercase(String(k))
+        # val = v |> typeof <: Vector ? join(field, ",") : field
+        push!(str, " $key = $v,")
+    end
+    push!(str, " /")
     str
 end
 
@@ -291,32 +195,134 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01)
     # var = [:outlon0, :outlat0, :numxgrid, :numygrid, :dxout, :dyout]
     # values = eval.(var)
     # Dict(k=> v for (k, v) in zip(var, values))
-    Dict(
-        :outlon0 => outlon0, :outlat0 => outlat0, :numxgrid => numxgrid, :numygrid => numygrid, :dxout => dxout, :dyout => dyout,
+    OrderedDict(
+        :OUTLON0 => outlon0, :OUTLAT0 => outlat0, :NUMXGRID => numxgrid, :NUMYGRID => numygrid, :DXOUT => dxout, :DYOUT => dyout,
     )
 end
 
-function set!(option::FpOption, newv::Dict{Symbol, <:Any})
+function set!(option::OptionBody, newv)
     merge!(option, newv)
+end
+function set(option::OptionBody, newv)
+    merge(option, newv)
+end
+
+# function broadcast(set, option::OptionBody, newvs::Array{Dict{Symbol, <:Any}})
+#     [set(option, newv) for newv in newvs]
+# end
+
+function Base.write(flexpartoption::FlexpartOptions, newpath::String = "")
+    options_dir = newpath == "" ? getdir(flexpartoption.dir, :options) : joinpath(newpath, OPTIONS_DIR)
+    try 
+        mkdir(options_dir)
+    catch
+    end
+
+    for (name, options) in flexpartoption.options
+        filepath = joinpath(options_dir, name)
+        write(options, filepath)
+    end
+end
+function write(options::OptionsGroup, path::String)
+    (tmppath, tmpio) = mktemp()
+
+    for line in format(options) Base.write(tmpio, line*"\n") end
+
+    close(tmpio)
+    dest = path
+
+    mv(tmppath, dest, force=true)
+end
+
+# function namelist2dict(filepath)
+#     options = FpOption[]
+#     headers = OptionName[]
+#     count = 0
+#     f = open(filepath, "r")
+#     for line in eachline(f)
+#         if !((m = match(r"\s*(.*?)\s*=\s*(\".*?\"|[^\s,]*)\s*,", line)) |> isnothing) #captures the field name in group 1 and the value in group 2
+#             push!(options[count], m.captures[1] |> Symbol => m.captures[2])
+#         elseif !((m = match(r"\&(\w*)", line)) |> isnothing) #captures the name of the header in group 1
+#             count = count + 1
+#             push!(options, Dict{Symbol, Any}())
+#             push!(headers, m.captures[1] |> lowercase |> Symbol)
+#         end
+#     end
+#     close(f)
+#     OptionsGroup(k => v for (k, v) in zip(headers, options))
+# end
+
+diffkeys(dict1, dict2) = [k for k in keys(dict1) if dict1[k] != get(dict2, k, nothing)]
+
+function compare(opt1::OptionsGroup, opt2::OptionsGroup)
+    d = Dict()
+    for (header, fpoption) in opt1
+        push!(d, header => [diffkeys(d1, opt2[header][i]) for (i, d1) in enumerate(fpoption)])
+    end
+    println("HEADER \t NAME \t FILE1 \t FILE2")
+    for (header, v) in d
+        println(header)
+        for (i, opt) in enumerate(v)
+            for name in opt
+                println("      \t $name \t $(opt1[header][i][name]) \t $(opt2[header][i][name])")
+            end
+        end
+    end
+    d
+end
+
+function compare(file1::String, file2::String)
+    opt1 = namelist2dict(file1)
+    opt2 = namelist2dict(file2)
+    compare(opt1, opt2)
+    # diffs
+end
+
+function compare(fpdir1::FlexpartDir, fpdir2::FlexpartDir, filename1::String; filename2::String = "", which = :output)
+    filename2 = filename2 |> isempty ? filename1 : filename2
+    file1 = joinpath(getdir(fpdir1, which), filename1)
+    file2 = joinpath(getdir(fpdir2, which), filename2)
+    compare(file1, file2)
 end
 
 function namelist2dict(filepath)
-    options = FpOption[]
-    headers = OptionName[]
-    count = 0
-    f = open(filepath, "r")
-    for line in eachline(f)
+    lines = readlines(filepath)
+    reg_header = r"\&(\w*)"
+    # match only '/' that are not between brackets. 
+    # src: https://stackoverflow.com/questions/11502598/how-to-match-something-with-regex-that-is-not-between-two-special-characters
+    reg_endofbody = r"\/(?=(?:[^\"]*\"[^\"]*\")*[^\"]*\Z)" 
+    cleared = [split(line, '!')[1] for line in lines] # remove the comments
+    iheader = findall(line -> !isnothing(match(reg_header, line)), cleared) # find headers
+    iend = findall(line -> !isnothing(match(reg_endofbody, line)), cleared) # find end of body
+    (length(iheader) == 0 || (length(iheader) !== length(iend))) && throw(NotNamelistError(filepath))
+    bodys = [lines[i:j] for (i, j) in zip(iheader, iend)]
+    headers = lines[iheader]
+    headers = [match(reg_header, line).captures[1] |> lowercase |> Symbol for line in headers]
+    optgroup = OptionsGroup(k => OptionBody[] for k in unique(headers))
+    # optgroup = Dict(k => Dict{Symbol, Any}[] for k in unique(headers))
+    for (n, header) in enumerate(headers)
+        push!(optgroup[header], lines2option(bodys[n]))
+    end
+    optgroup
+end
+
+# function isnamelist(file)
+#     try
+#         namelist2dict(file)
+#     catch
+#     end     
+# end
+
+function lines2option(lines::Vector{String})
+    opt = OptionBody()
+    for line in lines
         if !((m = match(r"\s*(.*?)\s*=\s*(\".*?\"|[^\s,]*)\s*,", line)) |> isnothing) #captures the field name in group 1 and the value in group 2
-            push!(options[count], m.captures[1] |> Symbol => m.captures[2])
-        elseif !((m = match(r"\&(\w*)", line)) |> isnothing) #captures the name of the header in group 1
-            count = count + 1
-            push!(options, Dict{Symbol, Any}())
-            push!(headers, m.captures[1] |> lowercase |> Symbol)
+            push!(opt, m.captures[1] |> Symbol => m.captures[2])
         end
     end
-    close(f)
-    OptionsGroup(k => v for (k, v) in zip(headers, options))
+    opt
 end
+
 
 
 # Base.convert(::Type{OutgridN}, outgrid::Outgrid) = OutgridN(getfield.(Ref(outgrid), filter(x -> x != :outheights, fieldnames(typeof(outgrid))))...)
