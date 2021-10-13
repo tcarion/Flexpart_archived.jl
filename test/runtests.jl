@@ -2,7 +2,6 @@ using Flexpart
 using Test
 using Dates
 
-
 # Flexpart.NCF_OUTPUT
 # @show Flexpart.option2dict("outgrid")
 # Flexpart.find_ncf()
@@ -22,7 +21,7 @@ using Dates
     fpdir = FlexpartDir(dirpath)
     # pathnam = Flexpart.pathnames(newdir)
     fpdir[:output]
-    fpdir[:input] = "./input"
+    fpdir[:input] = "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input"
     fpdir[:input]
     write(fpdir)
 
@@ -30,7 +29,11 @@ using Dates
     ###### TEST FLEXPART INPUT ########
     ###################################
     inputdir = "test/fp_dir_test/input"
-    Flexpart.update_available(fpdir)
+    # av = Flexpart.Available(fpdir)
+    # new_av = Flexpart.update(av, "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input")
+    # new_av2 = Flexpart.update(av, DateTime(2021, 8, 8):Dates.Hour(1):DateTime(2021, 8, 9)|>collect, "PREF")
+    newav = Flexpart.updated_available(fpdir)
+    Flexpart.write(fpdir, newav)
 
     ###################################
     ###### TEST FLEXPART OPTIONS ######
@@ -110,23 +113,57 @@ using Dates
     fedir = FlexextractDir(fepath, fcontrol)
     fesource = FeSource(installpath, pythonpath)
     
-    proc = run(fedir, fesource, async = true)
+    cmd = Flexpart.getcmd(fedir, fesource)
+
+    # pip = pipeline(cmd, `sleep 3`, `echo COUCOU`)
+    # logf = open("log.log", "w")
+    # open(pip) do io
+    #     lines = readlines(io, keep=true)
+    #     for line in lines
+    #         Base.write(logf, line)
+    #         flush(logf)
+    #     end
+    # end
+    # close(logf)
+
     # write(fcontrol, "test/fe_template/fe_output")
 
     ###################################
     ######## TEST MARSREQUESTS ########
     ###################################
     destmars = "test/fe_template/"
-    csvpath = "test/fe_template/fedir/input/mars_requests.csv"
+    csvpath = "test/fe_template/²fedir/input/mars_requests.csv"
+    tmpdir = "test/tmp"
     requests = MarsRequest(csvpath)
+    req = requests[1]
+    push!(req.dict, :dqsdqsdq => "dqsdqsdq")
+    Flexpart.retrieve(fesource, [req])
+    # cmd = Flexpart.retrievecmd(fesource, req, tmpdir)
+
+    open("log.log", "w") do logf
+        Flexpart.retrieve(fesource, [req]) do stream
+            data = readline(stream, keep=true)
+            Base.write(logf, data)
+            flush(logf)
+        end
+    end
     write(destmars, [requests[1]])
 
+    ###################################
+    ###### TEST PREPARE FLEXPART ######
+    ###################################
+    fedir = FlexextractDir(fepath)
+    cmd = Flexpart.preparecmd(fedir, fesource)
+    run(cmd)
 
-
-
-
-    
+    cmd = Flexpart.preparecmd(FlexextractDir(), fesource)
+    Flexpart.prepare(fedir, fesource) do stream
+        data = readline(stream, keep=true)
+        Base.write(logf, data)
+        flush(logf)
+    end
     ###### TEST FLEXPART OLD ######
+    close(logf)
     Flexpart.relloc(filename)
     Flexpart.start_dt(filename)
     Flexpart.times_dt(filename)

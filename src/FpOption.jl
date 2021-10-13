@@ -49,6 +49,7 @@ Base.getindex(fp::FlexpartOptions, name::OptionFileName) = fp.options[name]
 function Base.setindex!(fp::FlexpartOptions, value, name::OptionFileName)
     fp.options[name] = value
 end
+Base.keys(fpoptions::FlexpartOptions) = Base.keys(fpoptions.options)
 
 function add(fpoptions::FlexpartOptions, name::OptionFileName, header::OptionHeader, value)
     optionbody = convert(OptionBody, value)
@@ -201,17 +202,32 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01)
 end
 
 function set!(option::OptionBody, newv)
+    newv = newv isa Pair ? Dict(newv) : newv
     merge!(option, newv)
 end
 function set(option::OptionBody, newv)
+    newv = newv isa Pair ? Dict(newv) : newv
     merge(option, newv)
 end
 
+function setfromdates!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
+    toset = OrderedDict(
+        :IBDATE => Dates.format(start, "yyyymmdd"),
+        :IEDATE => Dates.format(finish, "yyyymmdd"),
+        :IBTIME => Dates.format(start, "HHMMSS"),
+        :IETIME => Dates.format(finish, "HHMMSS"),
+    )
+    set!(fpoptions["COMMAND"][:command][1], toset)
+end
+
+function setrelease!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
+    set!(fpoptions["RELEASE"][:command][1], toset)
+end
 # function broadcast(set, option::OptionBody, newvs::Array{Dict{Symbol, <:Any}})
 #     [set(option, newv) for newv in newvs]
 # end
 
-function Base.write(flexpartoption::FlexpartOptions, newpath::String = "")
+function write(flexpartoption::FlexpartOptions, newpath::String = "")
     options_dir = newpath == "" ? getdir(flexpartoption.dir, :options) : joinpath(newpath, OPTIONS_DIR)
     try 
         mkdir(options_dir)

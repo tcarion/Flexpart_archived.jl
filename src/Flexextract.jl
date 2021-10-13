@@ -1,5 +1,5 @@
 const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres.app"
-
+const PYTHON_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
 const FlexextractPath = String
 
 const ControlItem = Symbol
@@ -11,6 +11,8 @@ struct FlexControl
     control::FeControl
 end
 FlexControl(path::String) = FlexControl(abspath(path), control2dict(path))
+Base.show(io::IO, fcontrol::FlexControl) = print(io, "FlexControl with fields :\n", fcontrol.control)
+
 
 struct FlexextractDir
     path::FlexextractPath
@@ -25,9 +27,15 @@ struct FlexextractDir
         (mkpath(inputdir), mkpath(outputdir))
         controlname = joinpath(fepath, basename(control.path))
         newcontrol = FlexControl(controlname, control.control)
-        Base.write(newcontrol)
+        write(newcontrol)
         new(fepath, newcontrol, inputdir, outputdir, controlname)
     end
+end
+function FlexextractDir(fepath::FlexextractPath)
+    files = readdir(fepath, join=true)
+    icontrol = findfirst(x -> occursin("CONTROL", x), files .|> basename)
+    isnothing(icontrol) && error("FlexExtract dir has no Control file")
+    FlexextractDir(fepath, FlexControl(files[1]))
 end
 Base.show(io::IO, fedir::FlexextractDir) = print(io, "FlexextractDir @ ", fedir.path)
 
@@ -43,6 +51,7 @@ function Base.show(io::IO, fesource::FeSource)
 end
 struct MarsRequest
     dict::OrderedDict{Symbol, Any}
+    request_number::Int64
 end
 
 const MarsRequests = Array{MarsRequest}
@@ -53,35 +62,97 @@ function MarsRequest(row::CSV.Row)
         value = row[name]
         valuestr = row[name] |> string |> strip
         valuestr |> isempty && continue
-        value = valuestr[1]=='/' ? "\"" * valuestr * "\""  : value
+        value = valuestr[1]=='/' ? "\"" * valuestr * "\""  : valuestr
 
         name = name == :marsclass ? :class : name
         push!(d, name => value)
     end
-    d
-    MarsRequest(d)
+    MarsRequest(d, parse(Int64, pop!(d, :request_number)))
 end
 MarsRequest(csv::CSV.File)::MarsRequests = [MarsRequest(row) for row in csv]
 MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, normalizenames= true))
 
 
-runcmd(fedir::FlexextractDir, fesource::FeSource) = `$(fesource.python) $(fesource.scripts[:submit]) $(feparams(fedir))`
+submitcmd(fedir::FlexextractDir, fesource::FeSource) = `$(fesource.python) $(fesource.scripts[:submit]) $(feparams(fedir))`
 
-function Base.run(fedir::FlexextractDir, fesource::FeSource; async=false)
+function submit(fedir::FlexextractDir, fesource::FeSource; async=false)
     # params = feparams(fedir)
     # cmd = `$(fesource.python) $(fesource.scripts[:submit]) $(params)`
-    cmd = runcmd(fedir, fesource)
+    cmd = submitcmd(fedir, fesource)
     if async
         open(joinpath(fedir.path, "fe_run.log"), "w") do f
             Base.run(pipeline(cmd, f))
         end
     else
         Base.run(cmd)
+    end 
+    println("The following command has been run : $cmd")
+end
+
+function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String)
+    filename = writeyaml(dir, request)
+    cmde = [
+        fesource.python,
+        PYTHON_RETRIEVE_SCRIPT,
+        filename,
+        request[:target],
+    ]
+    # `$(fesource.python) $(PYTHON_RETRIEVE_SCRIPT) $(filename) $(request[:target]) $redir`
+    `$cmde`
+end
+
+function retrieve(fesource::FeSource, requests::MarsRequests)
+    mktempdir() do dir
+        for req in requests
+            cmd = retrievecmd(fesource, req, dir)
+            run(cmd)
+        end
     end
 end
 
-function retrieve(binpath::String, req::MarsRequest)
-    
+function retrieve(f::Function, fesource::FeSource, requests::MarsRequests)
+    mktempdir() do dir
+        for req in requests
+            cmd = retrievecmd(fesource, req, dir)
+            pipe = Pipe()
+
+            @async while true
+                f(pipe)
+            end
+
+            run(pipeline(cmd, stdout=pipe, stderr=pipe))
+        end
+    end
+end
+
+function preparecmd(fedir::FlexextractDir, fesource::FeSource)
+    files = readdir(fedir.inpath)
+    ifile = findfirst(files) do x
+        try
+            split(x, '.')[4]
+        catch
+            false
+        end
+        true
+    end
+    ppid = split(files[ifile], '.')[4]
+    `$(fesource.python) $(fesource.scripts[:prepare]) $(feparams(fedir)) $(["--ppid", ppid])`
+end
+
+function prepare(fedir::FlexextractDir, fesource::FeSource)
+    cmd = preparecmd(fedir, fesource)
+    run(cmd)
+end
+
+function prepare(f::Function, fedir::FlexextractDir, fesource::FeSource)
+    cmd = preparecmd(fedir, fesource)
+    pipe = Pipe()
+
+    @async while true
+        f(pipe)
+    end
+
+    run(pipeline(cmd, stdout=pipe, stderr=pipe))
 end
 
 function feparams(control::String, input::String, output::String)
@@ -102,6 +173,8 @@ function scripts(installpath::String)
         :prepare => joinpath(installpath, "Source", "Python", "Mods", "prepare_flexpart.py"),
     )
 end
+
+csvpath(fedir::FlexextractDir) = joinpath(fedir.inpath, "mars_requests.csv")
 
 function control2dict(filepath)
     d = FeControl()
@@ -126,27 +199,33 @@ function write(fcontrol::FlexControl, newpath::String)
     mv(tmppath, dest, force=true)
 end
 
-function Base.write(fcontrol::FlexControl)
+function write(fcontrol::FlexControl)
     write(fcontrol, fcontrol.path)
 end
 
 function Base.write(io::IOStream, req::MarsRequest)
-    for line in format(req) Base.write(io, line*"\n") end
+    for line in format(req) write(io, line*"\n") end
 end
 
-function Base.write(dest::String, req::MarsRequest)
+function write(dest::String, req::MarsRequest)
     (tmppath, tmpio) = mktemp()
 
-    Base.write(tmpio, req)
+    write(tmpio, req)
 
     close(tmpio)
-    mv(tmppath, joinpath(dest, "mars_req_$(req[:request_number])"), force=true)
+    mv(tmppath, joinpath(dest, "mars_req_$(req.request_number)"), force=true)
 end
 
-function Base.write(dest::String, reqs::MarsRequests)
+function write(dest::String, reqs::MarsRequests)
     for req in reqs
-        Base.write(dest, req)
+        write(dest, req)
     end
+end
+
+function writeyaml(dest::String, req::MarsRequest) 
+    filename = joinpath(dest, "mars_req_$(req.request_number)")
+    YAML.write_file(filename, req.dict)
+    filename
 end
 
 function format(fcontrol::FlexControl)::Vector{String}
@@ -178,6 +257,7 @@ function set_area!(fcontrol::FlexControl, area)
     )
     set!(fcontrol, new)
 end
+set_area!(fedir::FlexextractDir, area) = set_area!(fedir.control, area)
 
 function set_steps!(fcontrol::FlexControl, startdate, enddate, timestep)
     stepdt = startdate:Dates.Hour(timestep):(enddate - Dates.Hour(1))
@@ -186,11 +266,19 @@ function set_steps!(fcontrol::FlexControl, startdate, enddate, timestep)
     step_ctrl = []
 
     format_opt = opt -> opt < 10 ? "0$(opt)" : "$(opt)"
-    for (i, st) in enumerate(stepdt)
-        push!(time_ctrl, div(Dates.Hour(st).value, 12) * 12 |> format_opt)
-        step = Dates.Hour(st).value .% 12
-        step == 0 ? push!(type_ctrl, "AN") : push!(type_ctrl, "FC")
-        push!(step_ctrl, step |> format_opt)
+    if occursin("EA", fcontrol[:CLASS])
+        for st in stepdt
+            push!(time_ctrl, Dates.Hour(st).value % 24 |> format_opt)
+            push!(type_ctrl, "AN")
+            push!(step_ctrl, 0 |> format_opt)
+        end
+    else
+        for st in enumerate(stepdt)
+            push!(time_ctrl, div(Dates.Hour(st).value, 12) * 12 |> format_opt)
+            step = Dates.Hour(st).value .% 12
+            step == 0 ? push!(type_ctrl, "AN") : push!(type_ctrl, "FC")
+            push!(step_ctrl, step |> format_opt)
+        end
     end
 
     newd = Dict(
@@ -202,7 +290,7 @@ function set_steps!(fcontrol::FlexControl, startdate, enddate, timestep)
     )
     set!(fcontrol, newd)
 end
-
+set_steps!(fedir::FlexextractDir, startdate, enddate, timestep) = set_steps!(fedir.control, startdate, enddate, timestep)
 
 function set!(fcontrol::FlexControl, newv::Dict{Symbol, <:Any})
     merge!(fcontrol.control, newv)

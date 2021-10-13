@@ -5,6 +5,7 @@ using NCDatasets
 using RecipesBase
 using DataStructures
 using CSV
+using YAML
 # using Debugger
 # using PyPlot
 
@@ -76,7 +77,7 @@ end
 
 getdir(fpdir::FlexpartDir, type::Symbol) = isempty(fpdir.pathnames) ? joinpath(fpdir.path, DEFAULT_PATH[type]) |> abspath : joinpath(fpdir.path, fpdir[type]) |> abspath
 
-function Base.write(fpdir::FlexpartDir)
+function write(fpdir::FlexpartDir)
     open(joinpath(fpdir.path, PATHNAMES), "w") do f
         for (k, v) in fpdir.pathnames
             Base.write(f, v*"\n")
@@ -88,6 +89,7 @@ include("FpInput.jl")
 include("FpIO.jl")
 include("FpPlots.jl")
 include("Flexextract.jl")
+include("readgrib.jl")
 
 export
     FlexControl,
@@ -95,6 +97,7 @@ export
     FlexpartOptions,
     FlexpartOutput,
     FlexextractDir,
+    Available,
     FeSource,
     MarsRequest,
     prepare,
