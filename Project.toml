@@ -13,6 +13,7 @@ RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
+GRIB = "0.3"
 julia = "1"
 
 [extras]
