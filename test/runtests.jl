@@ -13,6 +13,22 @@ using Dates
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
 
 # @testset "Flexpart.jl" begin
+
+    ###################################
+    ############ UTILS ################
+    ###################################$
+    area = [60.1875, -5.0625, 34.875, 20.25]
+    area = [60, -5, 35, 20]
+    grid1 = 0.22
+    grid1 = 0.5
+    alons = -180.0:grid1:180.0 |> collect
+
+    outb = Flexpart.outer_vals(alons, (area[2], area[4]))
+    inb = Flexpart.inner_vals(alons, (area[2], area[4]))
+
+    outa = Flexpart.outer_area(area, grid1)
+    ina = Flexpart.inner_area(area, grid1)
+
     ###################################
     ###### TEST FLEXPART DIR ##########
     ###################################

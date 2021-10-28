@@ -75,18 +75,23 @@ MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, norma
 
 submitcmd(fedir::FlexextractDir, fesource::FeSource) = `$(fesource.python) $(fesource.scripts[:submit]) $(feparams(fedir))`
 
-function submit(fedir::FlexextractDir, fesource::FeSource; async=false)
+function submit(fedir::FlexextractDir, fesource::FeSource)
     # params = feparams(fedir)
     # cmd = `$(fesource.python) $(fesource.scripts[:submit]) $(params)`
     cmd = submitcmd(fedir, fesource)
-    if async
-        open(joinpath(fedir.path, "fe_run.log"), "w") do f
-            Base.run(pipeline(cmd, f))
-        end
-    else
-        Base.run(cmd)
-    end 
-    println("The following command has been run : $cmd")
+    println("The following command will be run : $cmd")
+    Base.run(cmd)
+end
+
+function submit(f::Function, fedir::FlexextractDir, fesource::FeSource)
+    cmd = submitcmd(fedir, fesource)
+    pipe = Pipe()
+
+    @async while true
+        f(pipe)
+    end
+
+    run(pipeline(cmd, stdout=pipe, stderr=pipe))
 end
 
 function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String)
@@ -248,7 +253,14 @@ function format(req::MarsRequest)
     str
 end
 
-function set_area!(fcontrol::FlexControl, area)
+function set_area!(fcontrol::FlexControl, area; grid = nothing)
+    if !isnothing(grid)
+        alons = -180.0:grid:180.0 |> collect
+        outerlons = outer_vals(alons, (area[2], area[4]))
+        alats = -90.0:grid:90.0 |> collect
+        outerlats = outer_vals(alats, (area[3], area[1]))
+        area = [outerlats[2], outerlons[1], outerlats[1], outerlons[2]]
+    end
     new = Dict(
         :LOWER => area[3] isa String || string(area[3]), 
         :UPPER => area[1] isa String || string(area[1]), 

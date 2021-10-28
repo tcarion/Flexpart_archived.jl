@@ -39,7 +39,7 @@ const OUTPUT_DIR = "output"
 const INPUT_DIR = "input"
 const AVAILABLE = "AVAILABLE"
 const PATHNAMES = "pathnames"
-PATHNAMES_VALUES = ["options", "output", "input", "available"]
+const PATHNAMES_VALUES = ("options", "output", "input", "available")
 
 DEFAULT_PATHNAMES = OrderedDict(
     k |> Symbol => v for (k, v) in zip(PATHNAMES_VALUES, [
@@ -85,11 +85,12 @@ function write(fpdir::FlexpartDir)
     end
 end
 
+include("readgrib.jl")
+include("utils.jl")
 include("FpInput.jl")
 include("FpIO.jl")
 include("FpPlots.jl")
 include("Flexextract.jl")
-include("readgrib.jl")
 
 export
     FlexControl,

@@ -172,33 +172,37 @@ function body2lines(body::OptionBody) :: Vector{String}
     str
 end
 
-
-round_area(area::Vector{<:Real}, mult=1) = return [ceil(area[1]*mult)/mult, floor(area[2]*mult)/mult, floor(area[3]*mult)/mult, ceil(area[4]*mult)/mult]
-
-function area2outgrid(area::Vector{<:Real}, gridres=0.01)
-    try 
-        convert(Int, log10(gridres))
-    catch
-        throw(ArgumentError("gridres must be 10^n"))
-    end
-
-    mult = 1/gridres
-    area = round_area(area, mult)
+function area2outgrid(area::Vector{<:Real}, gridres=0.01; nested=false)
+    # mult = 1/gridres
+    # area = round_area(area, mult)
     outlon0 = area[2]
     outlat0 = area[3]
-    deltalon = area[4] - outlon0
-    deltalat = area[1] - outlat0
-    numxgrid = convert(Int, deltalon/gridres |> round)
-    numygrid = convert(Int, deltalat/gridres |> round)
+    Δlon = area[4] - outlon0
+    Δlat = area[1] - outlat0
+    (numxgrid, numygrid) = try
+        convert(Int, Δlon/gridres), convert(Int, Δlat/gridres)
+    catch
+        error("gridres must divide area")
+    end
     dxout = gridres
     dyout = gridres
 
     # var = [:outlon0, :outlat0, :numxgrid, :numygrid, :dxout, :dyout]
     # values = eval.(var)
     # Dict(k=> v for (k, v) in zip(var, values))
-    OrderedDict(
+    res = OrderedDict(
         :OUTLON0 => outlon0, :OUTLAT0 => outlat0, :NUMXGRID => numxgrid, :NUMYGRID => numygrid, :DXOUT => dxout, :DYOUT => dyout,
     )
+    nested ? Dict(
+        String(k)*'N' |> Symbol => v for (k, v) in res
+    ) : res
+end
+
+function area2outgrid(fpdir::FlexpartDir, gridres::Real; nested=false)
+    firstinput = readdir(getdir(fpdir, :input), join=true)[1]
+    area = grib_area(firstinput)
+
+    area2outgrid(area, gridres; nested)
 end
 
 function set!(option::OptionBody, newv)
