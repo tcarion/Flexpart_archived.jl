@@ -71,7 +71,12 @@ function MarsRequest(row::CSV.Row)
 end
 MarsRequest(csv::CSV.File)::MarsRequests = [MarsRequest(row) for row in csv]
 MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, normalizenames= true))
+MarsRequest(dict::AbstractDict) = MarsRequest(convert(OrderedDict, dict), 1)
 
+function save_request(fedir::FlexextractDir)
+    csvp = csvpath(fedir)
+    cp(csvp, joinpath(fedir.path, basename(csvp)))
+end
 
 submitcmd(fedir::FlexextractDir, fesource::FeSource) = `$(fesource.python) $(fesource.scripts[:submit]) $(feparams(fedir))`
 
