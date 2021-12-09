@@ -1,6 +1,11 @@
 using Flexpart
+using Flexpart.FlexExtract
+using Flexpart.FpOptions
+using Flexpart.FpInputs
+using Flexpart.FpOutput
 using Test
 using Dates
+using Rasters
 
 # Flexpart.NCF_OUTPUT
 # @show Flexpart.option2dict("outgrid")
@@ -35,6 +40,7 @@ using Dates
     dirpath = "test/fp_dir_test"
     newdir = Flexpart.create(dirpath)
     fpdir = FlexpartDir(dirpath)
+    fpdirens = FlexpartDir{Ensemble}(dirpath)
     # pathnam = Flexpart.pathnames(newdir)
     fpdir[:output]
     fpdir[:input] = "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input"
@@ -48,6 +54,7 @@ using Dates
     # av = Flexpart.Available(fpdir)
     # new_av = Flexpart.update(av, "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input")
     # new_av2 = Flexpart.update(av, DateTime(2021, 8, 8):Dates.Hour(1):DateTime(2021, 8, 9)|>collect, "PREF")
+    av = FpInputs.Available(inputdir)
     newav = Flexpart.updated_available(fpdir)
     Flexpart.write(fpdir, newav)
 
@@ -55,15 +62,15 @@ using Dates
     ###### TEST FLEXPART OPTIONS ######
     ###################################
     fpoptions = FlexpartOptions(dirpath)
-    fpoptions["COMMAND"][:command][:ldirect] = 9
+    fpoptions["COMMAND"][:command][1][:ldirect] = 9
     area = [50, 4, 52, 6]
     newv = area2outgrid(area)
-    set!(fpoptions["OUTGRID"][:outgrid], newv)
+    set!(fpoptions["OUTGRID"][:outgrid][1], newv)
     write(fpoptions, pwd())
 
-    fopt = Flexpart.getnamelists(Flexpart.getdir(fpdir, :options))
+    # fopt = Flexpart.getnamelists(Flexpart.getdir(fpdir, :options))
 
-    comp = Flexpart.compare(
+    comp = FpOptions.compare(
         "/home/tcarion/.julia/dev/Flexpart/test/fp_dir_test/output/COMMAND.namelist",
         "/home/tcarion/.julia/dev/Flexpart/test/fp_dir_test/output/COMMAND.namelist2")
 
@@ -71,44 +78,35 @@ using Dates
     ###################################
     ###### TEST FLEXPART OUTPUTS ######
     ###################################
+
+    function spatial_layers(stack)
+        spatial_keys = []
+        for key in keys(stack)
+            ar = stack[key]
+            if hasdim(ar, X) && hasdim(ar, Y)
+                push!(spatial_keys, key)
+            end
+        end
+        spatial_keys
+    end
+
     output_files = ncf_files(fpdir)
     fpoutput = FlexpartOutput(output_files[1])
     
-    var2d = Flexpart.variables2d(fpoutput)
-    vars = Flexpart.variables(fpoutput)
-    dims = Flexpart.remdim(fpoutput, "spec001_mr")
-    globattr = Flexpart.attrib(fpoutput)
-    specattrib = Flexpart.attrib(fpoutput, "spec001_mr")
-    adims = Flexpart.alldims(fpoutput, "spec001_mr")
+    stack = RasterStack(FpOutput.getpath(fpoutput))
+    var2d = spatial_layers(stack)
+    vars = keys(stack)
+    spec001 = stack[:spec001_mr]
+    refd = refdims(spec001)
+    globattr = metadata(stack)
+    globattr = metadata(spec001)
 
-    spec001 = Flexpart.select(fpoutput, "spec001_mr");
-    oro = Flexpart.select(fpoutput, "ORO")
+    oro = stack[:ORO]
 
-    spec001_alltimes = Flexpart.select(fpoutput, "spec001_mr", (time=:, height=1, pointspec=1, nageclass=1))
-    spec001_2d_1 = Flexpart.select(fpoutput, "spec001_mr", 
-        Dict(:time=>adims[:time][4], :height=>adims[:height][2], :pointspec=>1, :nageclass=>1))
-
-    spec001_2d_2 = Flexpart.select(fpoutput, "spec001_mr", 
-        Dict(:time=>adims[:time][7], :height=>adims[:height][2], :pointspec=>1, :nageclass=>1))
-
-    spec001_2d_3 = Flexpart.select(fpoutput, "spec001_mr", 
-        Dict(:time=>adims[:time][7], :height=>:, :pointspec=>1, :nageclass=>1))
-
-    seltime = Flexpart.selected(spec001_alltimes)
-    sel = Flexpart.selected(spec001_2d)
-
-    dayav_error = Flexpart.daily_average(spec001)
-    dayav = Flexpart.daily_average(spec001_alltimes)
-
-    compdim = Flexpart.completedim(spec001_alltimes)
-
-    Flexpart.addable(spec001_2d_1, spec001_2d_2)
-    Flexpart.addable(spec001_2d_1, spec001_alltimes)
-
-    added = spec001_2d_1 + spec001_2d_2
-    diff = spec001_2d_1 - spec001_2d_2
-
-    Flexpart.write_daily_average(spec001, copy=true)
+    alltimes = view(spec001, Dim{:pointspec}(1), Dim{:nageclass}(1), Dim{:height}(1))
+    times = dims(spec001, Ti)
+    array = convert(Array, alltimes)
+    dayav_error = FpOutput.daily_average(array, times |> collect)
 
     
     ###################################
