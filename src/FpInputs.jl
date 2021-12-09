@@ -1,27 +1,64 @@
-struct Available
+module FpInputs
+
+import Flexpart: FlexpartDir, SimType, Deterministic, Ensemble
+using Dates
+
+abstract type AbstractFlexpartInput{SimType} end
+
+struct InputFile
+    date::DateTime
+    filename::String
+end
+
+const InputFiles = Vector{InputFile}
+
+struct Available{SimType}
     header::String
-    files::Vector{NamedTuple}
+    inputs::Union{InputFiles, Vector{InputFiles}}
 end
-function Available()
-    header = "YYYYMMDD HHMMSS   name of the file(up to 80 characters)"
-    new(header, Vector{NamedTuple}())
+Available(header::String, inputs::InputFiles) = Available{Deterministic}(header, inputs)
+Available(header::String, inputs::Vector{InputFiles}) = Available{Ensemble}(header, inputs)
+
+struct FlexpartInput{T} <: AbstractFlexpartInput{T}
+    fpdir::FlexpartDir{T}
+    available::Available{T}
 end
+
+
+# struct Available
+#     header::String
+#     files::Vector{NamedTuple}
+# end
+# function Available()
+#     header = "YYYYMMDD HHMMSS   name of the file(up to 80 characters)"
+#     new(header, Vector{NamedTuple}())
+# end
 function Available(path::String)
-    lines = readlines(path)
-    ioc = findfirst(x -> occursin("YYYYMMDD HHMMSS", x), lines)
-    headerlines = isnothing(ioc) ? [] : lines[1:ioc[1]]
-    header = join(headerlines, "\n")
+    # lines = readlines(path)
+    # ioc = findfirst(x -> occursin("YYYYMMDD HHMMSS", x), lines)
+    # headerlines = isnothing(ioc) ? [] : lines[1:ioc[1]]
+    # header = join(headerlines, "\n")
+    header, ioc = _header(path)
     filelines = isnothing(ioc) ? lines : lines[ioc+1:end]
-    files = NamedTuple[]
+    files = InputFiles()
     for l in filelines
         sl = split(l)
         date = DateTime(sl[1]*sl[2], "yyyymmddHHMMSS")
-        push!(files, (date=date, filename=sl[3]))
+        push!(files, InputFile(date, sl[3]))
     end
     Available(header, files)
 end
+Base.collect(av::Available) = av.files
+Base.filter(f::Function, av::Available) = Available(av.header, Base.filter(f, av |> collect))
 Available(fpdir::FlexpartDir) = Available(getdir(fpdir, :available))
 Base.show(io::IO, available::Available) = Base.display(available.files)
+
+function _header(path::String)
+    lines = readlines(path)
+    ioc = findfirst(x -> occursin("YYYYMMDD HHMMSS", x), lines)
+    headerlines = isnothing(ioc) ? [] : lines[1:ioc[1]]
+    return join(headerlines, "\n"), ioc
+end
 
 function write(available::Available, path::String)
     (tmppath, tmpio) = mktemp()
@@ -62,14 +99,16 @@ end
 function update(available::Available, inputdir::String)
     files = readdir(inputdir)
     newfiles = NamedTuple[]
-
+    reg = r"^([A-Z]*)(\d{8,10})$"
+    reg = r"^([A-Z]*)(\d{8,10})(\.N(\d{3}))?$"
     for file in files
-        m = match(r"^([A-Z]*)(\d{8,10})$", file)
+        m = match(reg, file)
         if !isnothing(m)
             x = m.captures[2]
             m_sep = parse.(Int, [x[1:2], x[3:4], x[5:6], x[7:8]])
             formated_date = DateTime(m_sep...)
-            push!(newfiles, (date=dateYY.(formated_date), filename=file))
+            nens = m.captures[4]
+            push!(newfiles, (date=dateYY.(formated_date), filename=file, nensemble = !isnothing(nens) ? parse(Int, nens) : nothing ))
         end
     end
     Available(available.header, newfiles)
@@ -124,4 +163,6 @@ function update_available(avpath::String, formated::Vector{<:String})
             Base.write(f, l*"\n")
         end
     end
+end
+
 end

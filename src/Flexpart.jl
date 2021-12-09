@@ -1,37 +1,57 @@
 module Flexpart
 
 using Dates
-using NCDatasets
 using RecipesBase
-using DataStructures
-using CSV
-using YAML
+using DataStructures: OrderedDict
 # using Debugger
 # using PyPlot
 
-const FlexpartPath = String
+export
+    FlexpartDir,
+    SimType,
+    Deterministic,
+    Ensemble,
+    pathnames
 
-mutable struct FlexpartDir
+
+@enum SimType Deterministic Ensemble
+
+const FlexpartPath = String
+struct FlexpartDir{SimType} 
     path::FlexpartPath
     pathnames::OrderedDict{Symbol, String}
     # FlexpartDir(path::String) = is_fp_dir(path) && new(path)
-    function FlexpartDir(path::String)
-        pns = try
-            OrderedDict(name |> Symbol => p for (name, p) in zip(PATHNAMES_VALUES, pathnames(joinpath(path, PATHNAMES))))
-        catch e
-            if isa(e, SystemError)
-                DEFAULT_PATHNAMES
-            else
-                throw(e)
-            end
+end
+FlexpartDir(path::String) = FlexpartDir{Deterministic}(path, _fpdir_helper(path))
+FlexpartDir{Deterministic}(path::String) = FlexpartDir{Deterministic}(path, _fpdir_helper(path))
+FlexpartDir{Ensemble}(path::String) = FlexpartDir{Ensemble}(path, _fpdir_helper(path))
+
+getpathnames(fpdir::FlexpartDir) = fpdir.pathnames
+
+function _fpdir_helper(path::String)
+    try
+        OrderedDict(name |> Symbol => p for (name, p) in zip(PATHNAMES_VALUES, pathnames(joinpath(path, PATHNAMES))))
+    catch e
+        if isa(e, SystemError)
+            DEFAULT_PATHNAMES
+        else
+            throw(e)
         end
-        new(path, pns)
     end
 end
-Base.show(io::IO, fpdir::FlexpartDir) = print(io, fpdir.path)
-Base.getindex(fpdir::FlexpartDir, name::Symbol) = fpdir.pathnames[name]
+# pathnames(fpdir::FlexpartDir) = fpdir.pathnames
+function Base.show(io::IO, fpdir::FlexpartDir) 
+    println(io,"$(typeof(fpdir)) @ $(fpdir.path)")
+    println(io, "pathnames:")
+    # println(getpathnames(fpdir))
+    for p in getpathnames(fpdir)
+        println(io, "\t", p)
+    end
+    return
+end
+Base.getindex(fpdir::FlexpartDir, name::Symbol) = getpathnames(fpdir)[name]
 function Base.setindex!(fpdir::FlexpartDir, value::String, name::Symbol)
-    fpdir.pathnames[name] = value
+    getpathnames(fpdir)[name] = value
 end
 
 const OPTIONS_DIR = "options"
@@ -85,45 +105,14 @@ function write(fpdir::FlexpartDir)
     end
 end
 
+
 include("readgrib.jl")
 include("utils.jl")
-include("FpInput.jl")
-include("FpIO.jl")
-include("FpPlots.jl")
-include("Flexextract.jl")
-
-export
-    FlexControl,
-    FlexpartDir,
-    FlexpartOptions,
-    FlexpartOutput,
-    FlexextractDir,
-    Available,
-    FeSource,
-    MarsRequest,
-    prepare,
-    set!,
-    set_area!,
-    set_steps!,
-    ncf_files,
-    retrieve,
-    # Releases,
-    # Releases_ctrl,
-    # Release,
-    # Outgrid,
-    # OutgridN,
-    # Command,
-    select,
-    selected,
-    update_available,
-    write_options, area2outgrid, format,
-    attrib,
-    variables2d,
-    deltamesh,
-    areamesh,
-    relloc,
-    start_dt,
-    end_dt,
-    namelist2dict,
-    write
+include("FpInputs.jl")
+include("FpOptions.jl")
+include("FpOutput.jl")
+include("FlexExtract.jl")
+include("Ensembles.jl")
 end
+
+

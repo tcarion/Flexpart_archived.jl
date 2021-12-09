@@ -1,5 +1,3 @@
-include("FpOutput.jl")
-
 @recipe function f(fpds::FpDataset)
     if fpds.dataset isa Matrix
         attr = attrib(fpds.fpoutput, fpds.varname)

@@ -1,3 +1,17 @@
+module FpOptions
+
+import Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, getdir
+import DataStructures: OrderedDict
+using Dates
+
+export 
+    FlexpartOptions,
+    set!,
+    set,
+    set_area!,
+    set_steps!,
+    area2outgrid
+
 struct NotNamelistError <: Exception
     filename::String
 end
@@ -7,40 +21,27 @@ const OptionHeader = Symbol
 const OptionFileName = String
 
 const OptionBody = OrderedDict{Symbol, Any}
-const FpOptions = Vector{OptionBody}
+const OptionBodys = Vector{OptionBody}
 
-const OptionsGroup = Dict{OptionHeader, FpOptions}
+const OptionsGroup = Dict{OptionHeader, OptionBodys}
 
 const FileOptions = Dict{OptionFileName, OptionsGroup}
 
-struct FlexpartOptions
-    dir::FlexpartDir
+struct FlexpartOptions{T}
+    fpdir::FlexpartDir{T}
     options::FileOptions
 end
 const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
 
 function to_fpoption(fpdir::FlexpartDir, name::OptionFileName)
-    # dir = FlexpartDir(path)
     name = name |> uppercase
     namelist2dict(joinpath(getdir(fpdir, :options), name))
-    # OptionsGroup(Symbol(key) => to_fpoption(dr[key], key) for key in keys(dr))
-    # Tuple(fpoption)
 end
 
-# function to_fpoption(dict_option, option::OptionName)
-#     option = option |> String |> uppercase |> Symbol
-#     FpOption(k |> String |> lowercase |> Symbol => v for (k, v) in dict_option)
-# end
+FlexpartOptions(path::String) = FlexpartOptions(FlexpartDir(path))
 
-FlexpartOptions(path::FlexpartPath) = FlexpartOptions(FlexpartDir(path))
-# function FlexpartOptions(fpdir::FlexpartDir)
-#     FlexpartOptions(
-#         fpdir, 
-#         FileOptions(filename => to_fpoption(fpdir, filename) for filename in OPTION_FILE_NAMES)
-#     )
-# end
-function FlexpartOptions(fpdir::FlexpartDir)
-    FlexpartOptions(
+function FlexpartOptions(fpdir::FlexpartDir{T}) where T
+    FlexpartOptions{T}(
         fpdir, 
         getnamelists(getdir(fpdir, :options))
     )
@@ -50,6 +51,7 @@ function Base.setindex!(fp::FlexpartOptions, value, name::OptionFileName)
     fp.options[name] = value
 end
 Base.keys(fpoptions::FlexpartOptions) = Base.keys(fpoptions.options)
+getfpdir(fpoptions::FlexpartOptions) = fpoptions.fpdir
 
 function add(fpoptions::FlexpartOptions, name::OptionFileName, header::OptionHeader, value)
     optionbody = convert(OptionBody, value)
@@ -79,67 +81,6 @@ function getnamelists(path::String)
     fileoptions
 end
 
-# function getnamelists(pathinit::String, path::String)
-#     files = readdir(path, join=true)
-#     for file in files
-#         if isdir(file)
-#             getnamelists(pathinit, file)
-#         else
-            
-#         end
-#     end
-# end
-
-# function to_fpoption(dict_option, option::String)
-#     option = option |> uppercase
-#     fpoption = STR_TO_TYPE[option]
-#     d = Dict(k |> String |> lowercase |> Symbol => v for (k, v) in dict_option)
-#     fn = fieldnames(fpoption)
-#     fd = Dict(key => try
-#             if stype <: Vector
-#                 parse.(Float64, split(d[key], ","))
-#             else
-#                 parse(stype, d[key])
-#             end
-#         catch
-#             d[key]
-#         end for (key, stype) in zip(fn, fpoption.types)
-#     )
-#     nt = NamedTuple{fn}([fd[key] for key in fn])
-#     fpoption(nt...)
-# end
-
-# function FlexpartOptions(dir::FlexpartDir)
-#     FlexpartOptions(
-#         to_fpoption(dir, "COMMAND")...,
-#         Releases(
-#             to_fpoption(dir, "RELEASES")...
-#         ),
-#         to_fpoption(dir, "OUTGRID")...,
-#         to_fpoption(dir, "OUTGRID_NEST")...
-#     )
-# end
-# FlexpartOptions(path::String) = FlexpartOptions(FlexpartDir(path))
-
-# function write(file::IOStream, option::FpOption)
-#     for line in format(option) write(file, line*"\n") end
-# end
-# function write(file::IOStream, options::Vector{<:FpOption})
-#     for option in options write(file, option) end
-# end
-
-# function write_options(options::Vector{FpOption}, filepath::String, dest::String="")
-#     (tmppath, tmpio) = mktemp()
-
-#     write(tmpio, options)
-
-#     close(tmpio)
-#     newf = dest=="" ? mv(tmppath, filepath, force=true) : mv(tmppath, joinpath(dest, basename(filepath)), force=true)
-#     chmod(newf, stat(filepath).mode)
-#     newf
-# end
-# write_options(option::FpOption, filepath::String, dest::String="") = write_options([option], filepath, dest)
-
 function format(options::OptionsGroup)::Vector{String}
     str = []
     for (header, fpoptions) in options
@@ -150,7 +91,7 @@ function format(options::OptionsGroup)::Vector{String}
     str
 end
 
-function option2lines(header::Symbol, options::FpOptions) :: Vector{String}
+function option2lines(header::Symbol, options::OptionBodys) :: Vector{String}
     head = header |> string |> uppercase
     str = String[]
     for option in options
@@ -165,7 +106,6 @@ function body2lines(body::OptionBody) :: Vector{String}
     str = String[]
     for (k, v) in body
         key = uppercase(String(k))
-        # val = v |> typeof <: Vector ? join(field, ",") : field
         push!(str, " $key = $v,")
     end
     push!(str, " /")
@@ -173,8 +113,6 @@ function body2lines(body::OptionBody) :: Vector{String}
 end
 
 function area2outgrid(area::Vector{<:Real}, gridres=0.01; nested=false)
-    # mult = 1/gridres
-    # area = round_area(area, mult)
     outlon0 = area[2]
     outlat0 = area[3]
     Δlon = area[4] - outlon0
@@ -186,10 +124,6 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01; nested=false)
     end
     dxout = gridres
     dyout = gridres
-
-    # var = [:outlon0, :outlat0, :numxgrid, :numygrid, :dxout, :dyout]
-    # values = eval.(var)
-    # Dict(k=> v for (k, v) in zip(var, values))
     res = OrderedDict(
         :OUTLON0 => outlon0, :OUTLAT0 => outlat0, :NUMXGRID => numxgrid, :NUMYGRID => numygrid, :DXOUT => dxout, :DYOUT => dyout,
     )
@@ -224,15 +158,12 @@ function setfromdates!(fpoptions::FlexpartOptions, start::DateTime, finish::Date
     set!(fpoptions["COMMAND"][:command][1], toset)
 end
 
-function setrelease!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
-    set!(fpoptions["RELEASE"][:command][1], toset)
-end
-# function broadcast(set, option::OptionBody, newvs::Array{Dict{Symbol, <:Any}})
-#     [set(option, newv) for newv in newvs]
+# function setrelease!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
+#     set!(fpoptions["RELEASE"][:command][1], toset)
 # end
 
 function write(flexpartoption::FlexpartOptions, newpath::String = "")
-    options_dir = newpath == "" ? getdir(flexpartoption.dir, :options) : joinpath(newpath, OPTIONS_DIR)
+    options_dir = newpath == "" ? getdir(getfpdir(flexpartoption), :options) : joinpath(newpath, OPTIONS_DIR)
     try 
         mkdir(options_dir)
     catch
@@ -253,24 +184,6 @@ function write(options::OptionsGroup, path::String)
 
     mv(tmppath, dest, force=true)
 end
-
-# function namelist2dict(filepath)
-#     options = FpOption[]
-#     headers = OptionName[]
-#     count = 0
-#     f = open(filepath, "r")
-#     for line in eachline(f)
-#         if !((m = match(r"\s*(.*?)\s*=\s*(\".*?\"|[^\s,]*)\s*,", line)) |> isnothing) #captures the field name in group 1 and the value in group 2
-#             push!(options[count], m.captures[1] |> Symbol => m.captures[2])
-#         elseif !((m = match(r"\&(\w*)", line)) |> isnothing) #captures the name of the header in group 1
-#             count = count + 1
-#             push!(options, Dict{Symbol, Any}())
-#             push!(headers, m.captures[1] |> lowercase |> Symbol)
-#         end
-#     end
-#     close(f)
-#     OptionsGroup(k => v for (k, v) in zip(headers, options))
-# end
 
 diffkeys(dict1, dict2) = [k for k in keys(dict1) if dict1[k] != get(dict2, k, nothing)]
 
@@ -326,13 +239,6 @@ function namelist2dict(filepath)
     optgroup
 end
 
-# function isnamelist(file)
-#     try
-#         namelist2dict(file)
-#     catch
-#     end     
-# end
-
 function lines2option(lines::Vector{String})
     opt = OptionBody()
     for line in lines
@@ -343,11 +249,4 @@ function lines2option(lines::Vector{String})
     opt
 end
 
-
-
-# Base.convert(::Type{OutgridN}, outgrid::Outgrid) = OutgridN(getfield.(Ref(outgrid), filter(x -> x != :outheights, fieldnames(typeof(outgrid))))...)
-
-# function set_heights(outgrid::Outgrid, heights::Vector{Float64})
-#     outgrid.outheights = heights
-#     outgrid
-# end
+end
