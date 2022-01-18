@@ -34,3 +34,8 @@ end
  
 round_area(area::Vector{<:Real}, mult=1) = return [ceil(area[1]*mult)/mult, floor(area[2]*mult)/mult, floor(area[3]*mult)/mult, ceil(area[4]*mult)/mult]
 
+function copyall(src::String, dest::String)
+    for el in readdir(src, join=true)
+        cp(el, joinpath(dest, basename(el)))
+    end
+end

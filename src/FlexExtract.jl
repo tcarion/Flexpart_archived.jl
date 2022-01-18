@@ -18,6 +18,15 @@ export
 
 const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres.app"
 const PYTHON_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
+
+function scripts(installpath::String)
+    Dict(
+        :run_local => joinpath(installpath, "Run", "run_local.sh"),
+        :submit => joinpath(installpath, "Source", "Python", "submit.py"),
+        :prepare => joinpath(installpath, "Source", "Python", "Mods", "prepare_flexpart.py"),
+    )
+end
+
 const FlexExtractPath = String
 
 const ControlItem = Symbol
@@ -139,7 +148,7 @@ function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String)
     `$cmde`
 end
 
-function retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing)
+function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing)
     mktempdir() do dir
         for req in requests
             cmd = retrievecmd(fesource, req, dir)
@@ -158,40 +167,15 @@ function retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing
         end
     end
 end
-retrieve_helper(fesource::FeSource, request::MarsRequest, f = nothing) = retrieve_helper(fesource, [request], f)
+_retrieve_helper(fesource::FeSource, request::MarsRequest, f = nothing) = _retrieve_helper(fesource, [request], f)
 
 function retrieve(fesource::FeSource, requests)
-    retrieve_helper(fesource, requests)
+    _retrieve_helper(fesource, requests)
 end
 
 function retrieve(f::Function, fesource::FeSource, requests)
-    retrieve_helper(fesource, requests, f)
+    _retrieve_helper(fesource, requests, f)
 end
-
-# function retrieve(fesource::FeSource, requests::MarsRequests)
-#     mktempdir() do dir
-#         for req in requests
-#             cmd = retrievecmd(fesource, req, dir)
-#             run(cmd)
-#         end
-#     end
-# end
-# retrieve(fesource::FeSource, req::MarsRequest) = retrieve(fesource, [req])
-
-# function retrieve(f::Function, fesource::FeSource, requests::MarsRequests)
-#     mktempdir() do dir
-#         for req in requests
-#             cmd = retrievecmd(fesource, req, dir)
-#             pipe = Pipe()
-
-#             @async while true
-#                 f(pipe)
-#             end
-
-#             run(pipeline(cmd, stdout=pipe, stderr=pipe))
-#         end
-#     end
-# end
 
 function preparecmd(fedir::FlexExtractDir, fesource::FeSource)
     files = readdir(fedir.inpath)
@@ -233,14 +217,6 @@ function feparams(control::String, input::String, output::String)
     params
 end
 feparams(fedir::FlexExtractDir) = feparams(fedir |> control |> getpath, fedir.inpath, fedir.outpath)
-
-function scripts(installpath::String)
-    Dict(
-        :run_local => joinpath(installpath, "Run", "run_local.sh"),
-        :submit => joinpath(installpath, "Source", "Python", "submit.py"),
-        :prepare => joinpath(installpath, "Source", "Python", "Mods", "prepare_flexpart.py"),
-    )
-end
 
 csvpath(fedir::FlexExtractDir) = joinpath(fedir.inpath, "mars_requests.csv")
 

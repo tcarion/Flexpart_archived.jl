@@ -1,11 +1,10 @@
 using Flexpart
 using Flexpart.FlexExtract
-using Flexpart.FpOptions
-using Flexpart.FpInputs
-using Flexpart.FpOutput
 using Test
 using Dates
 using Rasters
+
+import Flexpart: runcmd
 
 # Flexpart.NCF_OUTPUT
 # @show Flexpart.option2dict("outgrid")
@@ -37,38 +36,52 @@ using Rasters
     ###################################
     ###### TEST FLEXPART DIR ##########
     ###################################
-    dirpath = "test/fp_dir_test"
-    newdir = Flexpart.create(dirpath)
-    fpdir = FlexpartDir(dirpath)
-    fpdirens = FlexpartDir{Ensemble}(dirpath)
+    temp = FlexpartDir()
+    dirpath_det = "test/fp_dir_det"
+    dirpath_ens = "test/fp_dir_ens"
+    newdir = Flexpart.create(dirpath_det)
+    fpdir = FlexpartDir(dirpath_det)
+    fpdir_ens = FlexpartDir{Ensemble}(dirpath_ens)
     # pathnam = Flexpart.pathnames(newdir)
     fpdir[:output]
-    fpdir[:input] = "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input"
-    fpdir[:input]
-    write(fpdir)
+    fpdir[:input] = "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/output"
+    fpdirens[:input] = "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir_ensemble/output"
+    fpdir[:input] = "/home/tcarion/era5_compare/EXTRACTIONS/era5_20180809_ensembles_etadot/output"
+    Flexpart.write(fpdir)
 
     ###################################
     ###### TEST FLEXPART INPUT ########
     ###################################
-    inputdir = "test/fp_dir_test/input"
+    inputdir = "test/fe_template/fedir/output"
     # av = Flexpart.Available(fpdir)
     # new_av = Flexpart.update(av, "/home/tcarion/.julia/dev/Flexpart/test/fe_template/fedir/input")
     # new_av2 = Flexpart.update(av, DateTime(2021, 8, 8):Dates.Hour(1):DateTime(2021, 8, 9)|>collect, "PREF")
-    av = FpInputs.Available(inputdir)
+    ensinput = FpInputs.EnsembleInput(now(), "foo", 0)
+    detinput = convert(FpInputs.DeterministicInput, detinput)
+    av = FpInputs.Available(fpdir)
+    fpinput = FlexpartInput(fpdir)
+    fpinput_ens = FlexpartInput(fpdir_ens)
     newav = Flexpart.updated_available(fpdir)
-    Flexpart.write(fpdir, newav)
+    FpInputs.write(fpinput)
+    FpInputs.write(fpinput_ens)
 
+    ###################################
+    ######### RUN FLEXPART ############
+    ###################################
+    fpsource = FpSource("/home/tcarion/spack/opt/spack/linux-centos7-cascadelake/gcc-10.2.0/flexpart-10.4-4bf45bs7pvrl3kafpy7o5qgqgbivfa3z/bin/FLEXPART")
+    cmd = runcmd(fpdir, fpsource)
+    Flexpart.run(fpdir, fpsource)
     ###################################
     ###### TEST FLEXPART OPTIONS ######
     ###################################
-    fpoptions = FlexpartOptions(dirpath)
+    fpoptions_det = FlexpartOptions(dirpath_det)
     fpoptions["COMMAND"][:command][1][:ldirect] = 9
     area = [50, 4, 52, 6]
     newv = area2outgrid(area)
     set!(fpoptions["OUTGRID"][:outgrid][1], newv)
     write(fpoptions, pwd())
 
-    # fopt = Flexpart.getnamelists(Flexpart.getdir(fpdir, :options))
+    # fopt = Flexpart.getnamelists(Flexpart.abspath(fpdir, :options))
 
     comp = FpOptions.compare(
         "/home/tcarion/.julia/dev/Flexpart/test/fp_dir_test/output/COMMAND.namelist",
@@ -89,6 +102,8 @@ using Rasters
         end
         spatial_keys
     end
+
+    
 
     output_files = ncf_files(fpdir)
     fpoutput = FlexpartOutput(output_files[1])

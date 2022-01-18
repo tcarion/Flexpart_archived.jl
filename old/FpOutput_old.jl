@@ -37,14 +37,14 @@ function FlexpartOutput(filename::String)
     FlexpartOutput(filename, lons, lats, MetaData(filename))
 end
 
-FlexpartOutput(fpdir::FlexpartDir, name::String) = FlexpartOutput(joinpath(getdir(fpdir, :output), name))
+FlexpartOutput(fpdir::FlexpartDir, name::String) = FlexpartOutput(joinpath(abspath(fpdir, :output), name))
 FlexpartOutput(path::String, name::String) = FlexpartOutput(FlexpartDir(path), name)
 
 function ncf_files(fpdir::FlexpartDir; onlynested=false)
-    out_files = readdir(getdir(fpdir, :output))
+    out_files = readdir(abspath(fpdir, :output))
     f = onlynested ? x -> occursin(".nc", x) && occursin("nest", x) :  x ->  occursin(".nc", x)
     files = filter(f, out_files)
-    [joinpath(getdir(fpdir, :output), x) |> abspath for x in files]
+    [joinpath(abspath(fpdir, :output), x) |> abspath for x in files]
 end
 
 ncf_files(path::String; onlynested=false) = ncf_files(FlexpartDir(path), onlynested=onlynested)

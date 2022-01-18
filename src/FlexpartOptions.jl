@@ -1,15 +1,17 @@
-module FpOptions
+module FlexpartOptions
 
-import Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, getdir
-import DataStructures: OrderedDict
+using ..Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, grib_area
+import ..Flexpart
+
+using DataStructures: OrderedDict
 using Dates
 
 export 
-    FlexpartOptions,
+    FlexpartOption,
     set!,
     set,
-    set_area!,
     set_steps!,
+    setfromdates!,
     area2outgrid
 
 struct NotNamelistError <: Exception
@@ -27,33 +29,33 @@ const OptionsGroup = Dict{OptionHeader, OptionBodys}
 
 const FileOptions = Dict{OptionFileName, OptionsGroup}
 
-struct FlexpartOptions{T}
+struct FlexpartOption{T}
     fpdir::FlexpartDir{T}
     options::FileOptions
 end
-const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
+# const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
 
 function to_fpoption(fpdir::FlexpartDir, name::OptionFileName)
     name = name |> uppercase
-    namelist2dict(joinpath(getdir(fpdir, :options), name))
+    namelist2dict(joinpath(fpdir[:options], name))
 end
 
-FlexpartOptions(path::String) = FlexpartOptions(FlexpartDir(path))
+FlexpartOption(path::String) = FlexpartOption(FlexpartDir(path))
 
-function FlexpartOptions(fpdir::FlexpartDir{T}) where T
-    FlexpartOptions{T}(
+function FlexpartOption(fpdir::FlexpartDir{T}) where T
+    FlexpartOption{T}(
         fpdir, 
-        getnamelists(getdir(fpdir, :options))
+        getnamelists(fpdir[:options])
     )
 end
-Base.getindex(fp::FlexpartOptions, name::OptionFileName) = fp.options[name]
-function Base.setindex!(fp::FlexpartOptions, value, name::OptionFileName)
+Base.getindex(fp::FlexpartOption, name::OptionFileName) = fp.options[name]
+function Base.setindex!(fp::FlexpartOption, value, name::OptionFileName)
     fp.options[name] = value
 end
-Base.keys(fpoptions::FlexpartOptions) = Base.keys(fpoptions.options)
-getfpdir(fpoptions::FlexpartOptions) = fpoptions.fpdir
+Base.keys(fpoptions::FlexpartOption) = Base.keys(fpoptions.options)
+getfpdir(fpoptions::FlexpartOption) = fpoptions.fpdir
 
-function add(fpoptions::FlexpartOptions, name::OptionFileName, header::OptionHeader, value)
+function add(fpoptions::FlexpartOption, name::OptionFileName, header::OptionHeader, value)
     optionbody = convert(OptionBody, value)
     group = OptionsGroup(header => [optionbody])
     fpoptions[name] = group
@@ -133,7 +135,7 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01; nested=false)
 end
 
 function area2outgrid(fpdir::FlexpartDir, gridres::Real; nested=false)
-    firstinput = readdir(getdir(fpdir, :input), join=true)[1]
+    firstinput = readdir(fpdir[:input], join=true)[1]
     area = grib_area(firstinput)
 
     area2outgrid(area, gridres; nested)
@@ -148,7 +150,7 @@ function set(option::OptionBody, newv)
     merge(option, newv)
 end
 
-function setfromdates!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
+function setfromdates!(fpoptions::FlexpartOption, start::DateTime, finish::DateTime)
     toset = OrderedDict(
         :IBDATE => Dates.format(start, "yyyymmdd"),
         :IEDATE => Dates.format(finish, "yyyymmdd"),
@@ -162,8 +164,8 @@ end
 #     set!(fpoptions["RELEASE"][:command][1], toset)
 # end
 
-function write(flexpartoption::FlexpartOptions, newpath::String = "")
-    options_dir = newpath == "" ? getdir(getfpdir(flexpartoption), :options) : joinpath(newpath, OPTIONS_DIR)
+function Flexpart.write(flexpartoption::FlexpartOption, newpath::String = "")
+    options_dir = newpath == "" ? Flexpart.abspath(getfpdir(flexpartoption), :options) : joinpath(newpath, OPTIONS_DIR)
     try 
         mkdir(options_dir)
     catch
@@ -213,8 +215,8 @@ end
 
 function compare(fpdir1::FlexpartDir, fpdir2::FlexpartDir, filename1::String; filename2::String = "", which = :output)
     filename2 = filename2 |> isempty ? filename1 : filename2
-    file1 = joinpath(getdir(fpdir1, which), filename1)
-    file2 = joinpath(getdir(fpdir2, which), filename2)
+    file1 = joinpath(Flexpart.abspath(fpdir1, which), filename1)
+    file2 = joinpath(Flexpart.abspath(fpdir2, which), filename2)
     compare(file1, file2)
 end
 
