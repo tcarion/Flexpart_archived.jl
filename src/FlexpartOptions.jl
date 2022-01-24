@@ -1,6 +1,6 @@
 module FlexpartOptions
 
-using ..Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, grib_area
+using ..Flexpart: FlexpartDir, grib_area
 import ..Flexpart
 
 using DataStructures: OrderedDict
@@ -8,7 +8,7 @@ using Dates
 
 export 
     FlexpartOption,
-    set!,
+    # set!,
     set,
     set_steps!,
     setfromdates!,
@@ -29,8 +29,8 @@ const OptionsGroup = Dict{OptionHeader, OptionBodys}
 
 const FileOptions = Dict{OptionFileName, OptionsGroup}
 
-struct FlexpartOption{T}
-    fpdir::FlexpartDir{T}
+struct FlexpartOption
+    dirpath::String
     options::FileOptions
 end
 # const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
@@ -42,8 +42,8 @@ end
 
 FlexpartOption(path::String) = FlexpartOption(FlexpartDir(path))
 
-function FlexpartOption(fpdir::FlexpartDir{T}) where T
-    FlexpartOption{T}(
+function FlexpartOption(fpdir::FlexpartDir) where T
+    FlexpartOption(
         fpdir, 
         getnamelists(fpdir[:options])
     )
@@ -53,7 +53,7 @@ function Base.setindex!(fp::FlexpartOption, value, name::OptionFileName)
     fp.options[name] = value
 end
 Base.keys(fpoptions::FlexpartOption) = Base.keys(fpoptions.options)
-getfpdir(fpoptions::FlexpartOption) = fpoptions.fpdir
+# getfpdir(fpoptions::FlexpartOption) = fpoptions.fpdir
 
 function add(fpoptions::FlexpartOption, name::OptionFileName, header::OptionHeader, value)
     optionbody = convert(OptionBody, value)
@@ -141,7 +141,7 @@ function area2outgrid(fpdir::FlexpartDir, gridres::Real; nested=false)
     area2outgrid(area, gridres; nested)
 end
 
-function set!(option::OptionBody, newv)
+function Flexpart.set!(option::OptionBody, newv)
     newv = newv isa Pair ? Dict(newv) : newv
     merge!(option, newv)
 end
@@ -165,7 +165,7 @@ end
 # end
 
 function Flexpart.write(flexpartoption::FlexpartOption, newpath::String = "")
-    options_dir = newpath == "" ? Flexpart.abspath(getfpdir(flexpartoption), :options) : joinpath(newpath, OPTIONS_DIR)
+    options_dir = newpath == "" ? flexpartoption.dirpath : joinpath(newpath, OPTIONS_DIR)
     try 
         mkdir(options_dir)
     catch

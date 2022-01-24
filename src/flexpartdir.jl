@@ -11,32 +11,18 @@
 @enum SimType Deterministic Ensemble
 
 """
-    Pathnames
+    FpPathnames
 Object that represents the `pathnames` file. The paths are expected in the following order:
 
     $(FIELDS)
 """
-mutable struct Pathnames
+mutable struct FpPathnames <: AbstractPathnames
     options::String
     output::String
     input::String
     available::String
 end
-Pathnames() = Pathnames(DEFAULT_PATHNAMES...)
-Base.getindex(pn::Pathnames, name::Symbol) = getfield(pn, name)
-function Base.setindex!(pn::Pathnames, val::String, name::Symbol)
-    setfield!(pn, name, val)
-end
-function Base.iterate(pn::Pathnames, state=1)
-    fn = fieldnames(typeof(pn))
-    state > 4 ? nothing : ( (fn[state], getfield(pn, fn[state])), state + 1)
-end
-function Base.show(io::IO, ::MIME"text/plain", pn::Pathnames)
-    println(io, "pathnames:")
-    for (k, v) in pn
-        println(io, "\t", "$k => $v")
-    end
-end
+FpPathnames() = FpPathnames(DEFAULT_PATHNAMES...)
 
 """
     $(TYPEDEF)
@@ -49,9 +35,9 @@ The `FlexpartDir` object also indicates the type of the simulation:
 
 If no type parameter is provided when using `FlexpartDir` constructors, the default will be `Deterministic`.
 """
-struct FlexpartDir{SimType}
+struct FlexpartDir{SimType} <: AbstractFlexDir
     path::String
-    pathnames::Pathnames
+    pathnames::FpPathnames
     # FlexpartDir(path::String) = is_fp_dir(path) && new(path)
 end
 
@@ -66,7 +52,7 @@ FlexpartDir{T}(path::String) where T = FlexpartDir{T}(path, _fpdir_helper(path))
 """
     $(TYPEDSIGNATURES)
 
-Create a `FlexpartDir` in a temporary directory which the default options and pathnames. It can be copied afterwards with [`copy`](@ref).
+Create a `FlexpartDir` in a temporary directory whith the default options and pathnames. It can be copied afterwards with [`copy`](@ref).
 
 The default paths for the pathnames are:
 
@@ -90,18 +76,18 @@ function FlexpartDir{T}() where T
 end
 FlexpartDir() = FlexpartDir{Deterministic}()
 
-function Base.show(io::IO, ::MIME"text/plain", fpdir::FlexpartDir) 
+function Base.show(io::IO, mime::MIME"text/plain", fpdir::FlexpartDir) 
     println(io,"$(typeof(fpdir)) @ $(fpdir.path)")
-    display(getpathnames(fpdir))
+    show(io, mime, getpathnames(fpdir))
 end
 getpathnames(fpdir::FlexpartDir) = fpdir.pathnames
 getpath(fpdir::FlexpartDir) = fpdir.path
 
 # Base.getindex(fpdir::FlexpartDir, name::Symbol) = getpathnames(fpdir)[name]
-Base.getindex(fpdir::FlexpartDir, name::Symbol) = joinpath(getpath(fpdir), getpathnames(fpdir)[name]) |> Base.abspath
-function Base.setindex!(fpdir::FlexpartDir, value::String, name::Symbol)
-    getpathnames(fpdir)[name] = value
-end
+# Base.getindex(fpdir::FlexpartDir, name::Symbol) = joinpath(getpath(fpdir), getpathnames(fpdir)[name]) |> Base.abspath
+# function Base.setindex!(fpdir::FlexpartDir, value::String, name::Symbol)
+#     getpathnames(fpdir)[name] = value
+# end
 
 
 """
@@ -117,10 +103,10 @@ function _fpdir_helper(path::String)
     pn_path = joinpath(path, PATHNAMES_PATH_DEFAULT)
     isfile(pn_path) || error("No `pathnames` file has been found in the directory")
     try
-        Pathnames(pathnames(pn_path)...)
+        FpPathnames(pathnames(pn_path)...)
     catch e
         if isa(e, SystemError)
-            Pathnames()
+            FpPathnames()
         else
             throw(e)
         end

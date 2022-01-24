@@ -3,21 +3,27 @@ module FlexExtract
 using DataStructures
 using CSV
 using YAML
+using Dates
 
+import ..Flexpart: AbstractPathnames, AbstractFlexDir, create, write, set!
 export 
     FlexExtractDir, 
     FeControl, 
     FeSource, 
     MarsRequest,
-    get,
-    getpath,
-    control,
+    set_area!,
+    set_steps!,
     save_request,
-    csvpath
+    csvpath,
+    submit,
+    prepare,
+    retrieve
 
 
 const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres.app"
-const PYTHON_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
+const POLYTOPE_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
+const MARS_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pymars.py")
+    
 
 function scripts(installpath::String)
     Dict(
@@ -27,52 +33,70 @@ function scripts(installpath::String)
     )
 end
 
-const FlexExtractPath = String
-
 const ControlItem = Symbol
 const ControlFilePath = String
 
 const ControlFields= OrderedDict{ControlItem, Any}
 
+mutable struct FePathnames <: AbstractPathnames
+    input::String
+    output::String
+end
+FePathnames() = FePathnames("./input", "./output")
 struct FeControl
-    path::ControlFilePath
+    name::String
     dict::ControlFields
 end
-FeControl(path::String) = FeControl(abspath(path), control2dict(path))
+FeControl(path::String) = FeControl(basename(path), control2dict(path))
 fields(fcontrol::FeControl) = fcontrol.dict
-getpath(fcontrol::FeControl) = fcontrol.path
 # Base.show(io::IO, fcontrol::FeControl) = print(io, "FeControl with fields :\n", get(fcontrol))
-Base.show(io::IO, fcontrol::FeControl) = display(fields(fcontrol))
+function Base.show(io::IO, mime::MIME"text/plain", fcontrol::FeControl) 
+    print(io, "Control file with name $(fcontrol.name) and fields:\n")
+    show(io, mime, fcontrol.dict)
+end
+Base.show(io::IO, fcontrol::FeControl) = print(io, fields(fcontrol))
+# Base.show(io::IO, ::MIME"text/plain", fedir::FlexExtractDir) = display(fields(fcontrol))
+# Base.show(io::IO, fcontrol::FeControl) = display(fields(fcontrol))
 Base.getindex(fcontrol::FeControl, name::ControlItem) = fields(fcontrol)[name]
 function Base.setindex!(fcontrol::FeControl, val, name::ControlItem)
     fields(fcontrol)[name] = val
 end
 
-struct FlexExtractDir
-    path::FlexExtractPath
+struct FlexExtractDir <: AbstractFlexDir
+    path::String
     control::FeControl
-    inpath::String
-    outpath::String
-    function FlexExtractDir(fepath::FlexExtractPath, control::FeControl)
-        fepath = abspath(fepath)
-        inputdir = joinpath(fepath, "input")
-        outputdir = joinpath(fepath, "output")
-        (mkpath(inputdir), mkpath(outputdir))
-        controlname = joinpath(fepath, basename(control.path))
-        newcontrol = FeControl(controlname, fields(control))
-        write(newcontrol)
-        new(fepath, newcontrol, inputdir, outputdir)
-    end
+    pathnames::FePathnames
 end
-function FlexExtractDir(fepath::FlexExtractPath)
+function FlexExtractDir(fepath::String, controlpath::String)
+    fepath = abspath(fepath)
+    newcontrol = FeControl(controlpath)
+    FlexExtractDir(fepath, newcontrol, FePathnames("input", "output"))
+end
+function FlexExtractDir(fepath::String)
     files = readdir(fepath, join=true)
     icontrol = findfirst(x -> occursin("CONTROL", x), files .|> basename)
     isnothing(icontrol) && error("FlexExtract dir has no Control file")
-    FlexExtractDir(fepath, FeControl(files[1]))
+    FlexExtractDir(fepath, FeControl(files[1]), FePathnames())
 end
-control(fedir::FlexExtractDir) = fedir.control
+FlexExtractDir(fepath::String, fcontrol::FeControl) = FlexExtractDir(fepath, fcontrol, FePathnames())
+FlexExtractDir(fepath::String, fcontrolpath::String, inpath::String, outpath::String) =
+    FlexExtractDir(fepath, FeControl(fcontrolpath), FePathnames(inpath, outpath))
+getcontrol(fedir::FlexExtractDir) = fedir.control
 getpath(fedir::FlexExtractDir) = fedir.path
+controlpath(fedir::FlexExtractDir) = joinpath(abspath(fedir.path), fedir.control.name)
 Base.show(io::IO, fedir::FlexExtractDir) = print(io, "FlexExtractDir @ ", fedir.path)
+function Base.show(io::IO, mime::MIME"text/plain", fedir::FlexExtractDir)
+    show(io, fedir)
+    print(io, "\n")
+    show(io, mime, fedir.control)
+end
+function create(fedir::FlexExtractDir)
+    fepath = fedir.path
+    inputdir = joinpath(fepath, fedir.pathnames[:input])
+    outputdir = joinpath(fepath, fedir.pathnames[:output])
+    (mkpath(inputdir), mkpath(outputdir))
+    write(fedir.control, fepath)
+end
 
 struct FeSource
     path::String
@@ -110,6 +134,14 @@ MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, norma
 MarsRequest(dict::AbstractDict) = MarsRequest(convert(OrderedDict, dict), 1)
 fields(req::MarsRequest) = req.dict
 
+Base.getindex(req::MarsRequest, name::Symbol) = fields(req)[name]
+function Base.setindex!(req::MarsRequest, val, name::Symbol)
+    fields(req)[name] = val
+end
+Base.iterate(req::MarsRequest, i...) = Base.iterate(req.dict, i...)
+Base.show(io::IO, mime::MIME"text/plain", req::MarsRequest) = show(io, mime, req.dict)
+
+
 function save_request(fedir::FlexExtractDir)
     csvp = csvpath(fedir)
     cp(csvp, joinpath(fedir.path, basename(csvp)))
@@ -136,22 +168,30 @@ function submit(f::Function, fedir::FlexExtractDir, fesource::FeSource)
     run(pipeline(cmd, stdout=pipe, stderr=pipe))
 end
 
-function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String)
-    filename = writeyaml(dir, request)
-    cmde = [
-        fesource.python,
-        PYTHON_RETRIEVE_SCRIPT,
-        filename,
-        request[:target],
-    ]
+function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String; withmars = false)
+    filename = !withmars ? writeyaml(dir, request) : writemars(dir, request)
+    if withmars
+        cmd = [
+            fesource.python,
+            MARS_RETRIEVE_SCRIPT,
+            filename,
+        ]
+    else
+        cmd = [
+            fesource.python,
+            POLYTOPE_RETRIEVE_SCRIPT,
+            filename,
+            request[:target],
+        ]
+    end
     # `$(fesource.python) $(PYTHON_RETRIEVE_SCRIPT) $(filename) $(request[:target]) $redir`
-    `$cmde`
+    `$cmd`
 end
 
-function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing)
+function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing; withmars = false)
     mktempdir() do dir
         for req in requests
-            cmd = retrievecmd(fesource, req, dir)
+            cmd = retrievecmd(fesource, req, dir; withmars = withmars)
 
             if isnothing(f)
                 run(cmd)
@@ -167,18 +207,18 @@ function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothin
         end
     end
 end
-_retrieve_helper(fesource::FeSource, request::MarsRequest, f = nothing) = _retrieve_helper(fesource, [request], f)
+_retrieve_helper(fesource::FeSource, request::MarsRequest, f = nothing; withmars = false) = _retrieve_helper(fesource, [request], f; withmars = withmars)
 
-function retrieve(fesource::FeSource, requests)
-    _retrieve_helper(fesource, requests)
+function retrieve(fesource::FeSource, requests; withmars = false)
+    _retrieve_helper(fesource, requests; withmars = withmars)
 end
 
-function retrieve(f::Function, fesource::FeSource, requests)
-    _retrieve_helper(fesource, requests, f)
+function retrieve(f::Function, fesource::FeSource, requests; withmars = false)
+    _retrieve_helper(fesource, requests, f; withmars = withmars)
 end
 
 function preparecmd(fedir::FlexExtractDir, fesource::FeSource)
-    files = readdir(fedir.inpath)
+    files = readdir(fedir[:input])
     ifile = findfirst(files) do x
         try
             split(x, '.')[4]
@@ -216,9 +256,9 @@ function feparams(control::String, input::String, output::String)
     end
     params
 end
-feparams(fedir::FlexExtractDir) = feparams(fedir |> control |> getpath, fedir.inpath, fedir.outpath)
+feparams(fedir::FlexExtractDir) = feparams(controlpath(fedir), fedir[:input], fedir[:output])
 
-csvpath(fedir::FlexExtractDir) = joinpath(fedir.inpath, "mars_requests.csv")
+csvpath(fedir::FlexExtractDir) = joinpath(fedir[:input], "mars_requests.csv")
 
 function control2dict(filepath)
     d = ControlFields()
@@ -233,8 +273,8 @@ end
 
 
 function write(fcontrol::FeControl, newpath::String)
-    dest = newpath == "" ? fcontrol.path : joinpath(dirname(newpath), basename(fcontrol.path))
-    
+    # dest = newpath == "" ? fcontrol.path : joinpath(dirname(newpath), basename(fcontrol.path))
+    dest = joinpath(newpath, fcontrol.name)
     (tmppath, tmpio) = mktemp()
     
     for line in format(fcontrol) Base.write(tmpio, line*"\n") end
@@ -243,8 +283,12 @@ function write(fcontrol::FeControl, newpath::String)
     mv(tmppath, dest, force=true)
 end
 
-function write(fcontrol::FeControl)
-    write(fcontrol, fcontrol.path)
+# function write(fcontrol::FeControl)
+#     write(fcontrol, fcontrol.path)
+# end
+
+function write(fedir::FlexExtractDir)
+    write(fedir.control, fedir.path)
 end
 
 function Base.write(io::IOStream, req::MarsRequest)
@@ -269,6 +313,15 @@ end
 function writeyaml(dest::String, req::MarsRequest) 
     filename = joinpath(dest, "mars_req_$(req.request_number)")
     YAML.write_file(filename, req.dict)
+    filename
+end
+function writemars(dest::String, req::MarsRequest)
+    filename = joinpath(dest, "mars_req_$(req.request_number)")
+    open(filename, "w") do io
+        for (k, v) in req.dict
+            Base.write(io, "$k $v\n")
+        end
+    end
     filename
 end
 
@@ -347,11 +400,6 @@ function set!(fcontrol::FeControl, newv::Dict{Symbol, <:Any})
     merge!(fields(fcontrol), newv)
 end
 
-Base.getindex(req::MarsRequest, name::Symbol) = fields(req)[name]
-function Base.setindex!(req::MarsRequest, val, name::Symbol)
-    fields(req)[name] = val
-end
-
 # function Base.getproperty(req::MarsRequest, name::Symbol) 
 #     if name !== :dict
 #         get(req)[name]
@@ -362,7 +410,6 @@ end
 # function Base.setproperty!(req::MarsRequest, val, name::Symbol)
 #     get(req)[name] = val
 # end
-Base.iterate(req::MarsRequest, i...) = Base.iterate(req.dict, i...)
 # function format_opt(opt::Int)
 #     opt < 10 ? "0$(opt)" : "$(opt)"
 # end

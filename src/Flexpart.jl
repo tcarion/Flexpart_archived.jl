@@ -19,7 +19,12 @@ export
     FlexpartOutput,
     DeterministicOutput,
     EnsembleOutput,
-    outputpath
+    outputpath,
+    FeSource,
+    FeControl,
+    FlexExtractDir,
+    MarsRequest,
+    set_steps!
 
 # @template TYPES =
 #     """
@@ -49,7 +54,10 @@ const DEFAULT_PATHNAMES = (OPTIONS_DIR_DEFAULT, OUTPUT_DIR_DEFAULT, INPUT_DIR_DE
 const DEFAULT_FP_DIR = joinpath(@__DIR__, "files", "flexpart_dir_template")
 
 function write end
+function create end
+function set! end
 
+include("abstracts.jl")
 include("flexpartdir.jl")
 include("readgrib.jl")
 include("utils.jl")
@@ -62,7 +70,7 @@ include("run.jl")
 using .FlexpartInputs
 using .FlexpartOptions
 using .FlexpartOutputs
-
+using .FlexExtract
 
 end
 

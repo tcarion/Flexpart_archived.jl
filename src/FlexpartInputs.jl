@@ -48,7 +48,7 @@ struct InputFiles{T}
     files::Vector{<:AbstractInputFile{T}}
 end
 getfiles(in::InputFiles) = in.files
-Base.show(io::IO, ::MIME"text/plain", infiles::InputFiles) = display(getfiles(infiles))
+Base.show(io::IO, mime::MIME"text/plain", infiles::InputFiles) = show(io, mime, getfiles(infiles))
 Base.push!(in::InputFiles{Deterministic}, fields) = push!(getfiles(in), DeterministicInput(fields...))
 Base.push!(in::InputFiles{Ensemble}, fields) = push!(getfiles(in), EnsembleInput(fields...))
 # Base.size(in::InputFiles) where T = Base.size(in.files)
@@ -79,7 +79,7 @@ end
 Available(fpdir::FlexpartDir{T}) where T = Available{T}(fpdir[:available])
 Base.collect(av::Available) = av.inputs.files
 Base.filter(f::Function, av::Available{T}) where T = Available{T}(av.header, InputFiles{T}(filter(f, av |> collect)))
-Base.show(io::IO, ::MIME"text/plain", av::Available) = display(av.inputs)
+Base.show(io::IO, mime::MIME"text/plain", av::Available) = show(io, mime, av.inputs)
 
 function _available_helper(path::String, T::SimType)
     lines = readlines(path)
@@ -119,11 +119,11 @@ struct FlexpartInput{T} <: AbstractFlexpartInput{T}
 end
 available(fpinput::FlexpartInput) = fpinput.available
 getfpdir(fpinput::FlexpartInput) = fpinput.fpdir
-function Base.show(io::IO, ::MIME"text/plain", fpinput::FlexpartInput)
-    display(getfpdir(fpinput))
+function Base.show(io::IO, mime::MIME"text/plain", fpinput::FlexpartInput)
+    show(io, mime, getfpdir(fpinput))
 
     println("With input files:")
-    display(available(fpinput) |> collect)
+    show(io, mime, available(fpinput) |> collect)
 end
 Base.collect(fpinput::FlexpartInput) = collect(available(fpinput))
 
@@ -178,17 +178,6 @@ function Flexpart.write(available::Available, path::String)
     dest = path
 
     mv(tmppath, dest, force=true)
-end
-
-function dateYY(d)
-    y = Dates.year(d)
-    if 80 <= y <= 99
-        d+Dates.Year(1900)
-    elseif 0 <= y <= 79
-        d+Dates.Year(2000)
-    else
-        error("don't know what to do with year $d")
-    end
 end
 
 function format(av::Available)

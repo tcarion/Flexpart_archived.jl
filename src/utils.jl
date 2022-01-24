@@ -39,3 +39,14 @@ function copyall(src::String, dest::String)
         cp(el, joinpath(dest, basename(el)))
     end
 end
+
+function dateYY(d)
+    y = Dates.year(d)
+    if 80 <= y <= 99
+        d+Dates.Year(1900)
+    elseif 0 <= y <= 79
+        d+Dates.Year(2000)
+    else
+        error("don't know what to do with year $d")
+    end
+end

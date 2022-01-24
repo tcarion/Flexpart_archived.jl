@@ -1,5 +1,4 @@
 using Flexpart
-using Flexpart.FlexExtract
 using Test
 using Dates
 using Rasters
@@ -127,22 +126,24 @@ import Flexpart: runcmd
     ###################################
     ###### TEST FLEXEXTRACT ###########
     ###################################
-    installpath = "/home/tcarion/flexpart/flex_extract_v7.1.2"
-    defaultcontrol = "./test/fe_template/CONTROL_OD.OPER.FC.eta.highres.app"
-    fepath = "test/fe_template/fedir"
+    installpath = "/home/tcarion/flexpart/fe_dev/flex_extract_v7.1.2"
     pythonpath = "/opt/anaconda3/bin/python3"
+    fesource = FeSource(installpath, pythonpath)
+    
+    defaultcontrol = "./test/fe_template/fedir/CONTROL_OD.OPER.FC.eta.highres.app"
+    fepath = "./test/fe_template/fedir"
 
-    fcontrol = FlexControl(defaultcontrol)
+    fcontrol = FeControl(defaultcontrol)
     area = [52.2, 4, 49, 6]
     fcontrol[:REQUEST] = 1
     # set!(fcontrol, Dict(:CLASS => "foo", :ETA => 2))
     set_area!(fcontrol, area)
     set_steps!(fcontrol, DateTime("2021-09-05T00:00:00"), DateTime("2021-09-07T00:00:00"), 1)
 
-    fedir = FlexextractDir(fepath, fcontrol)
-    fesource = FeSource(installpath, pythonpath)
+    # fedir = FlexExtractDir(fepath, fcontrol)
+    fedir = FlexExtractDir(fepath)
     
-    cmd = Flexpart.getcmd(fedir, fesource)
+    cmd = Flexpart.FlexExtract.submit(fedir, fesource)
 
     # pip = pipeline(cmd, `sleep 3`, `echo COUCOU`)
     # logf = open("log.log", "w")
@@ -191,36 +192,5 @@ import Flexpart: runcmd
         Base.write(logf, data)
         flush(logf)
     end
-    ###### TEST FLEXPART OLD ######
-    close(logf)
-    Flexpart.relloc(filename)
-    Flexpart.start_dt(filename)
-    Flexpart.times_dt(filename)
-    output1 = Flexpart.FlexpartOutput(filename);
-    Flexpart.select!(output1, "spec001_mr");
-    output2 = Flexpart.FlexpartOutput(filename);
-    @test Flexpart.hasselection(output1) == true
-    @test Flexpart.hasselection(output2) == false
-    @test Flexpart.hasfield2d(output1) == true
-
-    Flexpart.isspatial(output1)
-    Flexpart.isspatial(output2)
-    Flexpart.remdim(output1)
-    Flexpart.remdim(output2)
-
-    dims = (time=:, height=1, pointspec=1, nageclass=1)
-    dims = Dict(:height=>15., :time=>"20200203T080000", :pointspec=>1, :nageclass=>1)
-    Flexpart.select!(output1, dims);
-    time_av = Flexpart.faverage(output1);
-    daily_av, days = Flexpart.daily_average(output1);
-    Flexpart.attrib(output1)
-
-    out_daily = Flexpart.write_daily_average(output1)
-    Flexpart.select!(out_daily, "daily_av")
-    Flexpart.select!(out_daily, (day=:,))
-    out_worst = Flexpart.write_worst_day(out_daily)
-    Flexpart.alldims(output2)
-    Flexpart.close(output1)
-    Flexpart.close(output2)
 
 # end
