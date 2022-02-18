@@ -1,6 +1,6 @@
 module FlexpartOptions
 
-using ..Flexpart: FlexpartDir, grib_area
+using ..Flexpart: FlexpartDir, grib_area, OPTIONS_DIR_DEFAULT
 import ..Flexpart
 
 using DataStructures: OrderedDict
@@ -10,7 +10,6 @@ export
     FlexpartOption,
     # set!,
     set,
-    set_steps!,
     setfromdates!,
     area2outgrid
 
@@ -35,19 +34,15 @@ struct FlexpartOption
 end
 # const OPTION_FILE_NAMES = ["COMMAND", "RELEASES", "OUTGRID", "OUTGRID_NEST"]
 
-function to_fpoption(fpdir::FlexpartDir, name::OptionFileName)
-    name = name |> uppercase
-    namelist2dict(joinpath(fpdir[:options], name))
-end
+# function to_fpoption(fpdir::FlexpartDir, name::OptionFileName)
+#     name = name |> uppercase
+#     namelist2dict(joinpath(fpdir[:options], name))
+# end
 
-FlexpartOption(path::String) = FlexpartOption(FlexpartDir(path))
+FlexpartOption(path::String) = FlexpartOption(path, getnamelists(path))
 
-function FlexpartOption(fpdir::FlexpartDir) where T
-    FlexpartOption(
-        fpdir, 
-        getnamelists(fpdir[:options])
-    )
-end
+FlexpartOption(fpdir::FlexpartDir) = FlexpartOption(fpdir[:options])
+
 Base.getindex(fp::FlexpartOption, name::OptionFileName) = fp.options[name]
 function Base.setindex!(fp::FlexpartOption, value, name::OptionFileName)
     fp.options[name] = value
@@ -119,6 +114,7 @@ function area2outgrid(area::Vector{<:Real}, gridres=0.01; nested=false)
     outlat0 = area[3]
     Δlon = area[4] - outlon0
     Δlat = area[1] - outlat0
+    Δlon, Δlat = round.([Δlon, Δlat], digits=7)
     (numxgrid, numygrid) = try
         convert(Int, Δlon/gridres), convert(Int, Δlat/gridres)
     catch
@@ -141,14 +137,14 @@ function area2outgrid(fpdir::FlexpartDir, gridres::Real; nested=false)
     area2outgrid(area, gridres; nested)
 end
 
-function Flexpart.set!(option::OptionBody, newv)
-    newv = newv isa Pair ? Dict(newv) : newv
-    merge!(option, newv)
-end
-function set(option::OptionBody, newv)
-    newv = newv isa Pair ? Dict(newv) : newv
-    merge(option, newv)
-end
+# function Flexpart.set!(option::OptionBody, newv)
+#     newv = newv isa Pair ? Dict(newv) : newv
+#     merge!(option, newv)
+# end
+# function set(option::OptionBody, newv)
+#     newv = newv isa Pair ? Dict(newv) : newv
+#     merge(option, newv)
+# end
 
 function setfromdates!(fpoptions::FlexpartOption, start::DateTime, finish::DateTime)
     toset = OrderedDict(
@@ -157,7 +153,7 @@ function setfromdates!(fpoptions::FlexpartOption, start::DateTime, finish::DateT
         :IBTIME => Dates.format(start, "HHMMSS"),
         :IETIME => Dates.format(finish, "HHMMSS"),
     )
-    set!(fpoptions["COMMAND"][:command][1], toset)
+    merge!(fpoptions["COMMAND"][:command][1], toset)
 end
 
 # function setrelease!(fpoptions::FlexpartOptions, start::DateTime, finish::DateTime)
@@ -165,7 +161,7 @@ end
 # end
 
 function Flexpart.write(flexpartoption::FlexpartOption, newpath::String = "")
-    options_dir = newpath == "" ? flexpartoption.dirpath : joinpath(newpath, OPTIONS_DIR)
+    options_dir = newpath == "" ? flexpartoption.dirpath : newpath
     try 
         mkdir(options_dir)
     catch

@@ -1,6 +1,6 @@
 using GRIB
 
-function grib_area(file::String)
+function grib_area(file::String) :: Vector{<:Float32}
     GribFile(file) do reader
         m = Message(reader)
         lons, lats = data(m)
@@ -14,7 +14,7 @@ function grib_area(file::String)
             min_lon += 360
             max_lon += 360
         end
-        return [maximum(lats), min_lon, minimum(lats), max_lon]
+        return convert.(Float32, [maximum(lats), min_lon, minimum(lats), max_lon])
     end
 end
 

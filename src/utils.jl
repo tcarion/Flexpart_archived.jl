@@ -34,6 +34,34 @@ end
  
 round_area(area::Vector{<:Real}, mult=1) = return [ceil(area[1]*mult)/mult, floor(area[2]*mult)/mult, floor(area[3]*mult)/mult, ceil(area[4]*mult)/mult]
 
+function deltamesh(lons, lats)
+    dxs = lons[2:end] - lons[1:end-1]
+    dys = lats[2:end] - lats[1:end-1]
+
+    dx = unique(round.(dxs, digits=5))
+    dy = unique(round.(dys, digits=5))
+
+    if (length(dx) != 1) || (length(dy) != 1)
+        error("mesh is not uniform")
+    end
+
+    dx[1], dy[1]
+end
+
+function areamesh(lons, lats)
+    min_lon = minimum(lons)
+    max_lon = maximum(lons)
+    if min_lon > 180 || max_lon > 180
+        min_lon -= 360
+        max_lon -= 360
+    end
+    if min_lon < -180 || max_lon < -180
+        min_lon += 360
+        max_lon += 360
+    end
+    [maximum(lats), min_lon, minimum(lats), max_lon]
+end
+
 function copyall(src::String, dest::String)
     for el in readdir(src, join=true)
         cp(el, joinpath(dest, basename(el)))

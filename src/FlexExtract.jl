@@ -361,7 +361,7 @@ function set_area!(fcontrol::FeControl, area; grid = nothing)
     )
     set!(fcontrol, new)
 end
-set_area!(fedir::FlexExtractDir, area) = set_area!(fedir.control, area)
+set_area!(fedir::FlexExtractDir, area; grid = nothing) = set_area!(fedir.control, area; grid = grid)
 
 function set_steps!(fcontrol::FeControl, startdate, enddate, timestep)
     stepdt = startdate:Dates.Hour(timestep):(enddate - Dates.Hour(1))
@@ -377,7 +377,7 @@ function set_steps!(fcontrol::FeControl, startdate, enddate, timestep)
             push!(step_ctrl, 0 |> format_opt)
         end
     else
-        for st in enumerate(stepdt)
+        for st in stepdt
             push!(time_ctrl, div(Dates.Hour(st).value, 12) * 12 |> format_opt)
             step = Dates.Hour(st).value .% 12
             step == 0 ? push!(type_ctrl, "AN") : push!(type_ctrl, "FC")

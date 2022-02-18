@@ -6,7 +6,8 @@ using DocStringExtensions
 using Rasters
 
 export
-    FlexpartOutput,
+    AbstractOutputFile,
+    OutputFiles,
     DeterministicOutput,
     EnsembleOutput,
     outputpath,
@@ -16,7 +17,7 @@ export
 
 
 abstract type AbstractOutputFile{SimType} end
-
+Base.convert(::Type{<:AbstractString}, output::AbstractOutputFile) = output.name
 """
     DeterministicInput
 
@@ -44,22 +45,26 @@ struct EnsembleOutput <: AbstractOutputFile{Ensemble}
 end
 
 struct OutputFiles{T}
+    # struct OutputFiles{T} <: AbstractVector{AbstractOutputFile{T}}
     files::Vector{<:AbstractOutputFile{T}}
 end
 OutputFiles(fpdir::FlexpartDir{T}) where T = OutputFiles{T}(fpdir[:output])
 Base.collect(outfiles::OutputFiles) = collect(outfiles.files)
 Base.filter(f::Function, outfiles::OutputFiles{T}) where T = OutputFiles{T}(filter(f, outfiles |> collect))
 Base.getindex(outfiles::OutputFiles, i::Int) = getindex(outfiles |> collect, i)
+Base.iterate(outfiles::OutputFiles, state) = iterate(outfiles.files, state)
+Base.iterate(outfiles::OutputFiles) = iterate(outfiles.files)
+Base.length(outfiles::OutputFiles) = length(outfiles.files)
 
 function OutputFiles{Deterministic}(path::String)
-    files = readdir(path)
+    files = readdir(path, join = true)
     ncfiles = filter(x -> occursin(".nc", x), files)
     outfiles = [DeterministicOutput(f) for f in ncfiles]
     OutputFiles{Deterministic}(outfiles)
 end
 
 function OutputFiles{Ensemble}(path::String)
-    files = readdir(path)
+    files = readdir(path, join = true)
     outfiles = EnsembleOutput[]
     for file in files
         m = match(r"member(\d*)", file)
@@ -73,18 +78,19 @@ function OutputFiles{Ensemble}(path::String)
     OutputFiles{Ensemble}(outfiles)
 end
 
+# struct FlexpartOutput{T}
+#     fpdir::FlexpartDir{T}
+#     outfiles::OutputFiles{T}
+# end
+# FlexpartOutput(fpdir::FlexpartDir) = FlexpartOutput(fpdir, OutputFiles(fpdir))
+# Base.collect(fpoutput::FlexpartOutput) = collect(fpoutput.outfiles)
+# Base.filter(f::Function, fpoutput::FlexpartOutput) = FlexpartOutput(fpoutput.fpdir, filter(f, fpoutput.outfiles))
+# function outputpath(fpoutput::FlexpartOutput)
+#     fppath = fpoutput.fpdir[:output]
+#     [joinpath(fppath, x.name) for x in fpoutput |> collect]
+# end
 
-struct FlexpartOutput{T}
-    fpdir::FlexpartDir{T}
-    outfiles::OutputFiles{T}
-end
-FlexpartOutput(fpdir::FlexpartDir) = FlexpartOutput(fpdir, OutputFiles(fpdir))
-Base.collect(fpoutput::FlexpartOutput) = collect(fpoutput.outfiles)
-Base.filter(f::Function, fpoutput::FlexpartOutput) = FlexpartOutput(fpoutput.fpdir, filter(f, fpoutput.outfiles))
-function outputpath(fpoutput::FlexpartOutput)
-    fppath = fpoutput.fpdir[:output]
-    [joinpath(fppath, x.name) for x in fpoutput |> collect]
-end
+
 # function ncf_files(fpdir::FlexpartDir; onlynested=false)
 #     out_files = readdir(fpdir[:output])
 #     f = onlynested ? x -> occursin(".nc", x) && occursin("nest", x) :  x ->  occursin(".nc", x)
@@ -94,102 +100,74 @@ end
 
 # ncf_files(path::String; onlynested=false) = ncf_files(FlexpartDir(path), onlynested=onlynested)
 
-function mean(fpoutput::FlexpartOutput{Ensemble})
+# function mean(fpoutput::FlexpartOutput{Ensemble})
 
-end
+# end
 
-function deltamesh(lons, lats)
-    dxs = lons[2:end] - lons[1:end-1]
-    dys = lats[2:end] - lats[1:end-1]
+# function filter_fields(lon, lat, field)
+#     if size(field) != (length(lon), length(lat)) error("dimension mismatch : size(field) == (length(lon), length(lat))") end
+#     mask = (!).(isapprox.(0., field))
 
-    dx = unique(round.(dxs, digits=5))
-    dy = unique(round.(dys, digits=5))
+#     mg_lon = lon .* ones(length(lat))'
+#     mg_lat = lat' .* ones(length(lon))
 
-    if (length(dx) != 1) || (length(dy) != 1)
-        error("mesh is not uniform")
-    end
+#     return mg_lon[mask], mg_lat[mask], field[mask]
+# end
 
-    dx[1], dy[1]
-end
-
-function areamesh(lons, lats)
-    min_lon = minimum(lons)
-    max_lon = maximum(lons)
-    if min_lon > 180 || max_lon > 180
-        min_lon -= 360
-        max_lon -= 360
-    end
-    if min_lon < -180 || max_lon < -180
-        min_lon += 360
-        max_lon += 360
-    end
-    [maximum(lats), min_lon, minimum(lats), max_lon]
-end
-
-function filter_fields(lon, lat, field)
-    if size(field) != (length(lon), length(lat)) error("dimension mismatch : size(field) == (length(lon), length(lat))") end
-    mask = (!).(isapprox.(0., field))
-
-    mg_lon = lon .* ones(length(lat))'
-    mg_lat = lat' .* ones(length(lon))
-
-    return mg_lon[mask], mg_lat[mask], field[mask]
-end
-
-function faverage(alltimes::Array{<:Real, 3})
-    added = zeros(eltype(alltimes), size(alltimes)[1:2])
-    N = length(alltimes[1, 1, :])
-    for i=1:N
-        added += alltimes[:, :, i]
-    end
+# function faverage(alltimes::Array{<:Real, 3})
+#     added = zeros(eltype(alltimes), size(alltimes)[1:2])
+#     N = length(alltimes[1, 1, :])
+#     for i=1:N
+#         added += alltimes[:, :, i]
+#     end
     
-    return added ./ N
-end
+#     return added ./ N
+# end
 
-function daily_average(alltimes::Array{T, 3}, times::Vector) where T
-    sdays = split_days(times)
-    daily_av = zeros(eltype(alltimes), (size(alltimes)[1:2]..., length(sdays)))
-    for (index, day_index) in enumerate(sdays)
-        days = alltimes[:, :, day_index];
-        daily_av[:, :, index] = faverage(days)
-    end
-    return daily_av
-end
+# function daily_average(alltimes::Array{T, 3}, times::Vector) where T
+#     sdays = split_days(times)
+#     daily_av = zeros(eltype(alltimes), (size(alltimes)[1:2]..., length(sdays)))
+#     for (index, day_index) in enumerate(sdays)
+#         days = alltimes[:, :, day_index];
+#         daily_av[:, :, index] = faverage(days)
+#     end
+#     return daily_av
+# end
 
 
-symb2string(d::Dict) = Dict(String(k) => v for (k,v) in d)
+# symb2string(d::Dict) = Dict(String(k) => v for (k,v) in d)
 
-function sum_abs(field)
-    sum(abs, field)
-end
+# function sum_abs(field)
+#     sum(abs, field)
+# end
 
-function findworst_day(fields::AbstractArray)
-    sums = [sum_abs(f) for f in eachslice(fields, dims=3)]
-    _, ind = findmax(sums)
-    fields[:, :, ind], ind
-end
+# function findworst_day(fields::AbstractArray)
+#     sums = [sum_abs(f) for f in eachslice(fields, dims=3)]
+#     _, ind = findmax(sums)
+#     fields[:, :, ind], ind
+# end
 
-function worst_day(fields::AbstractArray)
-    f, _ = findworst_day(fields)
-    f
-end
+# function worst_day(fields::AbstractArray)
+#     f, _ = findworst_day(fields)
+#     f
+# end
 
-function split_days(times::Vector)
-    split = Vector{Vector{Int}}()
-    cur_day = Dates.day(times[1]) 
-    day_inds = Vector{Int}()
-    for (index, time) in enumerate(times)
-        day = Dates.day(time)
-        if day == cur_day
-            push!(day_inds, index)
-        else
-            push!(split, day_inds)
-            day_inds = Vector{Int}()
-            push!(day_inds, index)
-            cur_day = day
-        end
-    end
-    return split
-end
+# function split_days(times::Vector)
+#     split = Vector{Vector{Int}}()
+#     cur_day = Dates.day(times[1]) 
+#     day_inds = Vector{Int}()
+#     for (index, time) in enumerate(times)
+#         day = Dates.day(time)
+#         if day == cur_day
+#             push!(day_inds, index)
+#         else
+#             push!(split, day_inds)
+#             day_inds = Vector{Int}()
+#             push!(day_inds, index)
+#             cur_day = day
+#         end
+#     end
+#     return split
+# end
 
 end

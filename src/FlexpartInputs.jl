@@ -1,6 +1,6 @@
 module FlexpartInputs
 
-using ..Flexpart: FlexpartDir, SimType, Deterministic, Ensemble
+using ..Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, dateYY
 import ..Flexpart
 using Dates
 using DocStringExtensions
