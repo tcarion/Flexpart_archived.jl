@@ -78,3 +78,18 @@ function dateYY(d)
         error("don't know what to do with year $d")
     end
 end
+
+function writelines(io::IO, lines::Vector{<:String})
+    for line in lines Base.write(io, line*"\n") end
+end
+
+function writelines(path::String, lines::Vector{<:String})
+    (tmppath, tmpio) = mktemp()
+
+    writelines(tmpio, lines)
+
+    close(tmpio)
+    dest = path
+
+    mv(tmppath, dest, force=true)
+end
