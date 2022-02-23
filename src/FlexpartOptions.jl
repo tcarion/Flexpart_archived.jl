@@ -59,6 +59,7 @@ end
 struct Entries
    vec::Vector{<:OptionEntry}
 end
+Entries() = Entries(Vector{OptionEntry}(undef, 0))
 function Base.getindex(entries::Entries, name::Symbol)
     i = findfirst(x -> x.name == name, entries.vec)
     entries.vec[i]
@@ -69,8 +70,7 @@ function Base.setindex!(entries::Entries, val, name::Symbol)
 end
 Base.iterate(entries::Entries) = iterate(entries.vec)
 Base.iterate(entries::Entries, state) = iterate(entries.vec, state)
-# Base.iterate(entries::Entries, ::Int64) = iterate(entries.vec, ::Int64)
-Entries() = Entries(Vector{OptionEntry}(undef, 0))
+Base.keys(entries::Entries) = [x.name for x in entries.vec]
 
 const UniqueSubOption = Entries
 const MultSubOption = Vector{Entries}
@@ -83,6 +83,9 @@ Base.setindex!(sub::SubOption{UniqueSubOption}, val, name::Symbol) = setindex!(s
 
 Base.getindex(sub::SubOption{MultSubOption}, i::Int) = sub.entries[i]
 Base.setindex!(sub::SubOption{MultSubOption}, val, i::Int) = sub.entries[i].value = string(val)
+
+Base.keys(sub::SubOption{UniqueSubOption}) = keys(sub.entries) 
+Base.keys(sub::SubOption{MultSubOption}) = keys(sub.entries[1]) 
 
 # function SubOption(name::Symbol, lines::AbstractVector{String})
 #     entries = [OptionEntry(line) for line in lines]
