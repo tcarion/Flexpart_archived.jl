@@ -159,6 +159,7 @@ end
 
 function submit(f::Function, fedir::FlexExtractDir, fesource::FeSource)
     cmd = submitcmd(fedir, fesource)
+    println("The following command will be run : $cmd")
     pipe = Pipe()
 
     @async while true

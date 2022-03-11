@@ -23,7 +23,7 @@ $(TYPEDFIELDS)
 struct DeterministicInput <: AbstractInputFile{Deterministic}
     "Time of the input file"
     time::DateTime
-    "Filename the input file"
+    "Filename of the input file"
     filename::String
 end
 
@@ -37,7 +37,7 @@ $(TYPEDFIELDS)
 struct EnsembleInput <: AbstractInputFile{Ensemble}
     "Time of the input file"
     time::DateTime
-    "Filename the input file"
+    "Filename of the input file"
     filename::String
     "Ensemble member number of the input file"
     member::Int
@@ -49,6 +49,10 @@ struct InputFiles{T}
 end
 getfiles(in::InputFiles) = in.files
 Base.show(io::IO, mime::MIME"text/plain", infiles::InputFiles) = show(io, mime, getfiles(infiles))
+Base.length(in::InputFiles) = length(in.files)
+Base.getindex(in::InputFiles, i) = in.files[i]
+Base.firstindex(in::InputFiles) = 1
+Base.lastindex(in::InputFiles) = length(in.files)
 Base.push!(in::InputFiles{Deterministic}, fields) = push!(getfiles(in), DeterministicInput(fields...))
 Base.push!(in::InputFiles{Ensemble}, fields) = push!(getfiles(in), EnsembleInput(fields...))
 # Base.size(in::InputFiles) where T = Base.size(in.files)
@@ -80,6 +84,10 @@ Available(fpdir::FlexpartDir{T}) where T = Available{T}(fpdir[:available])
 Base.collect(av::Available) = av.inputs.files
 Base.filter(f::Function, av::Available{T}) where T = Available{T}(av.header, InputFiles{T}(filter(f, av |> collect)))
 Base.show(io::IO, mime::MIME"text/plain", av::Available) = show(io, mime, av.inputs)
+Base.getindex(av::Available, i) = av.inputs[i]
+Base.firstindex(av::Available) = 1
+Base.lastindex(av::Available) = length(av.inputs)
+Base.length(av::Available) = length(av.inputs)
 
 function _available_helper(path::String, T::SimType)
     lines = readlines(path)
@@ -121,10 +129,13 @@ available(fpinput::FlexpartInput) = fpinput.available
 getfpdir(fpinput::FlexpartInput) = fpinput.fpdir
 function Base.show(io::IO, mime::MIME"text/plain", fpinput::FlexpartInput)
     show(io, mime, getfpdir(fpinput))
-
-    println("With input files:")
+    println(io, "With input files:")
     show(io, mime, available(fpinput) |> collect)
 end
+Base.length(fpinput::FlexpartInput) = length(fpinput.available)
+Base.getindex(fpinput::FlexpartInput, i) = fpinput.available[i]
+Base.firstindex(fpinput::FlexpartInput) = 1
+Base.lastindex(fpinput::FlexpartInput) = length(fpinput.available)
 Base.collect(fpinput::FlexpartInput) = collect(available(fpinput))
 
 FlexpartInput(fpdir::FlexpartDir) = _fp_input_helper(fpdir)
