@@ -4,6 +4,7 @@ using Dates
 using RecipesBase
 using DataStructures: OrderedDict
 using DocStringExtensions
+using Rasters
 # using Debugger
 # using PyPlot
 
@@ -13,7 +14,7 @@ export
     SimType,
     Deterministic,
     Ensemble,
-    FlexpartInput,
+    InputFiles,
     Available,
     FlexpartOption,
     AbstractOutputFile,
@@ -72,6 +73,8 @@ using .FlexpartInputs
 using .FlexpartOptions
 using .FlexpartOutputs
 using .FlexExtract
+
+include("readinput.jl")
 
 end
 
