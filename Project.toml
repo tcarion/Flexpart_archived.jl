@@ -8,18 +8,22 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Emoslib_jll = "497af919-c005-5197-85cc-b1f3ea720854"
 GRIB = "b16dfd50-4035-11e9-28d4-9dfe17e6779b"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+eccodes_jll = "b04048ba-5ccd-5610-b3f6-85129a548705"
 
 [compat]
 julia = "1"
 
 [extras]
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "Rasters"]

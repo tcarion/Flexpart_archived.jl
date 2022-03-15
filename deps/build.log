@@ -1,0 +1,17 @@
+/home/tcarion/.julia/artifacts/d368c4a2554ae41a99c2c8fd03aa11df844b2723/flex_extract_v7.1.2/setup_local.sh: line 91: Source/Python/install.py: No such file or directory
+ERROR: LoadError: failed process: Process(`/home/tcarion/.julia/artifacts/d368c4a2554ae41a99c2c8fd03aa11df844b2723/flex_extract_v7.1.2/setup_local.sh`, ProcessExited(127)) [127]
+
+Stacktrace:
+ [1] pipeline_error
+   @ ./process.jl:525 [inlined]
+ [2] run(::Cmd; wait::Bool)
+   @ Base ./process.jl:440
+ [3] run(::Cmd)
+   @ Base ./process.jl:438
+ [4] top-level scope
+   @ ~/.julia/dev/Flexpart/deps/build.jl:10
+ [5] include(fname::String)
+   @ Base.MainInclude ./client.jl:444
+ [6] top-level scope
+   @ none:5
+in expression starting at /home/tcarion/.julia/dev/Flexpart/deps/build.jl:10
