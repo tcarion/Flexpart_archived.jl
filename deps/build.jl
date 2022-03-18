@@ -1,6 +1,8 @@
 using Pkg.Artifacts
 using PyCall
 
+include("extract_flexpart.jl")
+
 const PIP_PACKAGES = ["eccodes", "genshi", "numpy", "cdsapi", "ecmwf-api-client"]
 const FE_SOURCE_PATH = "flex_extract_v7.1.2"
 
@@ -18,3 +20,6 @@ fortran_source_path = joinpath(source_path, "Source", "Fortran")
 
 
 # run(`$(PyCall.python) $(install_pyscript) $args`)
+
+
+

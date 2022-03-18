@@ -1,6 +1,6 @@
 module FlexpartOptions
 
-using ..Flexpart: FlexpartDir, grib_area, writelines, OPTIONS_DIR_DEFAULT
+using ..Flexpart: FlexpartDir, grib_area, writelines
 import ..Flexpart
 
 using DataStructures: OrderedDict
@@ -113,6 +113,9 @@ Base.getindex(group::OptionGroup{<:SingleEntries}, name::Symbol) = getindex(grou
 Base.setindex!(group::OptionGroup{<:SingleEntries}, val, name::Symbol) = setindex!(group.entries, val, name)
 
 Base.getindex(group::OptionGroup{<:MultipleEntries}, i::Int) = OptionGroup(group.name, group.entries[i])
+
+Base.iterate(group::OptionGroup{<:MultipleEntries}) = iterate(group.entries)
+Base.iterate(group::OptionGroup{<:MultipleEntries}, i) = iterate(group.entries, i)
 # Base.setindex!(group::SubOption{MultipleEntries}, val, i::Int) = group.entries[i].value = string(val)
 
 Base.keys(group::OptionGroup{<:SingleEntries}) = keys(group.entries)
