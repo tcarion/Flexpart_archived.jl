@@ -114,11 +114,17 @@ function _fpdir_helper(path::String)
 end
 # pathnames(fpdir::FlexpartDir) = fpdir.pathnames
 
-function create(name::String; force=false)
+function create(name::String)
     spl = splitpath(name)
     path = length(spl) == 1 ? joinpath(pwd(), name) : name
-    !force && ispath(path) && error("$path already exists. force = true is required to remove existing dir")
-    cp(DEFAULT_FP_DIR, path, force=force)
+    # !force && ispath(path) && error("$path already exists. force = true is required to remove existing dir")
+    fpdir_default = FlexpartDir{Deterministic}(DEFAULT_FP_DIR, FpPathnames())
+    newfpdir = FlexpartDir{Deterministic}(path, FpPathnames())
+    mkdir(newfpdir.path)
+    cp(fpdir_default[:options], newfpdir[:options])
+    cp(fpdir_default[:output], newfpdir[:output])
+    cp(joinpath(fpdir_default.path, DEFAULT_PATH_PATHNAMES),joinpath(newfpdir.path, DEFAULT_PATH_PATHNAMES))
+    newfpdir
 end
 
 function pathnames(fpdir::FlexpartDir)

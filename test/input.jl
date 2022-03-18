@@ -23,6 +23,6 @@ formated = format(av_from_dir)
 Flexpart.write(av_from_dir)
 
 @testset "Available length and filter" begin
-    @test length(av) == 3
+    @test length(av_from_dir) == 3
     @test filter(x -> Dates.Hour(x.time).value == 0, av_from_dir)[1] == DeterministicInput(DateTime("2020-01-01T00:00:00"), "EH20010100", "../test/fp_dir_test/input")
 end
