@@ -1,6 +1,6 @@
 module FlexpartOptions
 
-using ..Flexpart: FlexpartDir, grib_area, writelines, OPTIONS_DIR_DEFAULT
+using ..Flexpart: FlexpartDir, grib_area, writelines
 import ..Flexpart
 
 using DataStructures: OrderedDict
