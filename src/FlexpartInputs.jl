@@ -25,7 +25,7 @@ Object that represents a deterministic input file.
 
 $(TYPEDFIELDS)
 """
-struct DeterministicInput <: AbstractInputFile{Deterministic}
+mutable struct DeterministicInput <: AbstractInputFile{Deterministic}
     "Time of the input file"
     time::DateTime
     "Filename of the input file"
@@ -42,7 +42,7 @@ Object that represents a ensemble input file.
 
 $(TYPEDFIELDS)
 """
-struct EnsembleInput <: AbstractInputFile{Ensemble}
+mutable struct EnsembleInput <: AbstractInputFile{Ensemble}
     "Time of the input file"
     time::DateTime
     "Filename of the input file"
@@ -60,11 +60,23 @@ function _input_helper(path::String, T)
     filename = basename(path)
     dirpath = dirname(path)
     m = match(FLEXEXTRACT_OUTPUT_REG, filename)
+    formated_date, nmem = _parse_fe_input(filename)
+    T == Deterministic ? DeterministicInput(dateYY.(formated_date), filename, dirpath) : EnsembleInput(dateYY.(formated_date), filename, nmem, dirpath)
+end
+
+function _parse_fe_input(filename::String)
+    m = match(FLEXEXTRACT_OUTPUT_REG, filename)
     if !isnothing(m)
         x = m.captures[2]
         m_sep = parse.(Int, [x[1:2], x[3:4], x[5:6], x[7:8]])
-        formated_date = DateTime(m_sep...)
-        T == Deterministic ? DeterministicInput(dateYY.(formated_date), filename, dirpath) : EnsembleInput(dateYY.(formated_date), filename, parse(Int, m.captures[4]), dirpath)
+        nmem = try
+            parse(Int, m.captures[4])
+        catch
+            nothing
+        end
+        DateTime(m_sep...), nmem
+    else
+        error("Input filename $name couldn't be parsed")
     end
 end
 struct InputFiles{T} <: AbstractVector{T}
