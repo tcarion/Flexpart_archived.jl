@@ -25,7 +25,7 @@ Object that represents a deterministic input file.
 
 $(TYPEDFIELDS)
 """
-struct DeterministicInput <: AbstractInputFile{Deterministic}
+mutable struct DeterministicInput <: AbstractInputFile{Deterministic}
     "Time of the input file"
     time::DateTime
     "Filename of the input file"
@@ -42,7 +42,7 @@ Object that represents a ensemble input file.
 
 $(TYPEDFIELDS)
 """
-struct EnsembleInput <: AbstractInputFile{Ensemble}
+mutable struct EnsembleInput <: AbstractInputFile{Ensemble}
     "Time of the input file"
     time::DateTime
     "Filename of the input file"
