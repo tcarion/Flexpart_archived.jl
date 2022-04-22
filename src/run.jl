@@ -1,45 +1,31 @@
-struct FpSource
-    bin::String
-end
-
-"""
-    FpSource([path::String])
-
-The FpSource gives the information about the Flexpart installation. `path` is the path to the FLEXPART binary.
-If no `path` is provided, it will be assumed that the `FLEXPART` binary is in the `\$PATH`.
-"""
-FpSource() = FpSource(DEFAULT_BIN)
-getbin(fpsource::FpSource) = fpsource.bin
-
-function runcmd(fpdir::FlexpartDir, fpsource::FpSource)
-    fbin = getbin(fpsource)
+function getcmd(fpdir::FlexpartDir)
     pn_path = pathnames_path(fpdir)
-    `$fbin $pn_path`
+    `$FLEXPART_EXECUTABLE $pn_path`
 end
 
 """
     $(TYPEDSIGNATURES)
 
-Run Flexpart using the paths of `fpdir` and the Flexpart installation of `FpSource`.
+Run Flexpart using the paths of `fpdir`.
 """
-function run(fpdir::FlexpartDir{Deterministic}, fpsource::FpSource; log = false) 
+function run(fpdir::FlexpartDir{Deterministic}; log = false) 
     if log == false 
-        _run_helper(fpdir, fpsource; f = nothing)
+        _run_helper(fpdir; f = nothing)
     else
         logpath = joinpath(fpdir[:output], "output.log")
         open(logpath, "w") do logf
-            run(fpdir, fpsource) do io
+            run(fpdir) do io
                 log_output(io, logf)
             end
         end
     end
 end
 
-run(f::Function, fpdir::FlexpartDir{Deterministic}, fpsource::FpSource) = _run_helper(fpdir, fpsource; f = f)
+run(f::Function, fpdir::FlexpartDir{Deterministic}) = _run_helper(fpdir; f = f)
 
-run(fpdir::FlexpartDir{Ensemble}, fpsource::FpSource) = _run_helper(fpdir, fpsource)
+run(fpdir::FlexpartDir{Ensemble}) = _run_helper(fpdir)
 
-function _run_helper(fpdir::FlexpartDir{Deterministic}, fpsource::FpSource; f = nothing)
+function _run_helper(fpdir::FlexpartDir{Deterministic}; f = nothing)
     # println("The following command will be run : $cmd")
     tempfpdir = FlexpartDir()
     tempfpdir[:options] = fpdir[:options]
@@ -48,7 +34,7 @@ function _run_helper(fpdir::FlexpartDir{Deterministic}, fpsource::FpSource; f = 
     tempfpdir[:available] = fpdir[:available]
 
     write(tempfpdir)
-    cmd = runcmd(tempfpdir, fpsource)
+    cmd = getcmd(tempfpdir)
     println("Will run Flexpart with following pathnames: ")
     println(tempfpdir.pathnames)
     if isnothing(f)
@@ -63,7 +49,7 @@ function _run_helper(fpdir::FlexpartDir{Deterministic}, fpsource::FpSource; f = 
     end
 end
 
-function _run_helper(fpdir::FlexpartDir{Ensemble}, fpsource)
+function _run_helper(fpdir::FlexpartDir{Ensemble})
     av = readav(fpdir) |> available
     inputs = av |> collect
     members = [x.member for x in inputs] |> unique 
@@ -86,7 +72,7 @@ function _run_helper(fpdir::FlexpartDir{Ensemble}, fpsource)
         
         log_path = joinpath(getpath(fpdir), "member$(imember).log")
         @async open(log_path, "w") do logf
-            run(tempfpdir, fpsource) do io
+            run(tempfpdir) do io
                 # line = readline(io, keep=true)
                 # Base.write(logf, line)
                 # flush(logf)

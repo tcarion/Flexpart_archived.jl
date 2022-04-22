@@ -100,7 +100,7 @@ function copy(fpdir::FlexpartDir, path::String) :: FlexpartDir
 end
 
 function _fpdir_helper(path::String)
-    pn_path = joinpath(path, PATHNAMES_PATH_DEFAULT)
+    pn_path = joinpath(path, DEFAULT_PATH_PATHNAMES)
     isfile(pn_path) || error("No `pathnames` file has been found in the directory")
     try
         FpPathnames(pathnames(pn_path)...)
@@ -134,7 +134,7 @@ end
 function pathnames(path::String)
     readlines(path)
 end
-pathnames_path(fpdir::FlexpartDir) = joinpath(getpath(fpdir), PATHNAMES_PATH_DEFAULT) |> Base.abspath
+pathnames_path(fpdir::FlexpartDir) = joinpath(getpath(fpdir), DEFAULT_PATH_PATHNAMES) |> Base.abspath
 
 abspath(fpdir::FlexpartDir, type::Symbol) = joinpath(getpath(fpdir), fpdir[type]) |> Base.abspath
 

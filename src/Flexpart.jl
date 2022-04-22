@@ -6,12 +6,12 @@ using RecipesBase
 using DataStructures: OrderedDict
 using DocStringExtensions
 using Rasters
+using FLEXPART_jll
 # using Debugger
 # using PyPlot
 
 export
     FlexpartDir,
-    FpSource,
     SimType,
     Deterministic,
     Ensemble,
@@ -44,8 +44,8 @@ export
 
 #     $(METHODLIST)
 #     """
-const DEFAULT_BIN = "FLEXPART"
-const ROOT_ARTIFACT_FLEXPART = artifact"flexpart"
+const FLEXPART_EXECUTABLE = FLEXPART()
+# const ROOT_ARTIFACT_FLEXPART = artifact"flexpart"
 
 # const OPTIONS_DIR_DEFAULT = "./options"
 # const OUTPUT_DIR_DEFAULT = "./output"
@@ -54,7 +54,9 @@ const ROOT_ARTIFACT_FLEXPART = artifact"flexpart"
 const DEFAULT_PATH_PATHNAMES = "./pathnames"
 const PATHNAMES_KEYS = (:options, :output, :input, :available)
 
-const DEFAULT_FP_DIR = joinpath(ROOT_ARTIFACT_FLEXPART, "flexpart")
+# const DEFAULT_FP_DIR = joinpath(ROOT_ARTIFACT_FLEXPART, "flexpart")
+const DEFAULT_FP_DIR = joinpath(@__DIR__, "files", "flexpart_dir_template")
+
 const DEFAULT_PATHNAMES = readlines(joinpath(Flexpart.DEFAULT_FP_DIR, DEFAULT_PATH_PATHNAMES))
 
 function write end
