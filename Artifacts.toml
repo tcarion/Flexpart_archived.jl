@@ -2,13 +2,12 @@
     git-tree-sha1 = "d368c4a2554ae41a99c2c8fd03aa11df844b2723"
 
     [[flex_extract.download]]
-    url = "https://www.flexpart.eu/gitmob/flex_extract"
-    sha256 = "4c02240a344abc072977aa8d68227b4969f20f59b433bb79332687864dc57ec0"
-
-    [[flex_extract.download]]
     url = "https://phaidra.univie.ac.at/download/o:1097971"
     sha256 = "4c02240a344abc072977aa8d68227b4969f20f59b433bb79332687864dc57ec0"
 
 [flexpart]
 git-tree-sha1 = "0cc3f787689d82e4bbd86697b0fceb1ccdf284e4"
 
+    [[flexpart.download]]
+    url = "https://www.flexpart.eu/downloads/66"
+    sha256 = "0f7a844129d7d790564f4099824b8ab027610afc90c25146cdd41e8e0718a9a9"
