@@ -45,7 +45,9 @@ export
 #     $(METHODLIST)
 #     """
 const FLEXPART_EXECUTABLE = FLEXPART()
-# const ROOT_ARTIFACT_FLEXPART = artifact"flexpart"
+# TODO: UPDATE TO REAL ARTIFACT
+const ROOT_ARTIFACT_FLEXPART_DATA = artifact"flexpart_data"
+# const ROOT_ARTIFACT_FLEXPART = "test/flexpart_data"
 
 # const OPTIONS_DIR_DEFAULT = "./options"
 # const OUTPUT_DIR_DEFAULT = "./output"
@@ -54,8 +56,14 @@ const FLEXPART_EXECUTABLE = FLEXPART()
 const DEFAULT_PATH_PATHNAMES = "./pathnames"
 const PATHNAMES_KEYS = (:options, :output, :input, :available)
 
-# const DEFAULT_FP_DIR = joinpath(ROOT_ARTIFACT_FLEXPART, "flexpart")
-const DEFAULT_FP_DIR = joinpath(@__DIR__, "files", "flexpart_dir_template")
+const DEFAULT_FP_DIR = joinpath(ROOT_ARTIFACT_FLEXPART_DATA, "default_fpdir")
+# const DEFAULT_FP_DIR = joinpath(@__DIR__, "files", "flexpart_dir_template")
+const FLEXIN_PATH = joinpath(ROOT_ARTIFACT_FLEXPART_DATA, "flexin")
+
+# Paths to input files for testing purposes
+const FP_TESTS_PATH = joinpath(ROOT_ARTIFACT_FLEXPART_DATA, "tests")
+const FP_TESTS_DETER_INPUT = joinpath(FP_TESTS_PATH, "input", "deterministic")
+const FP_TESTS_ENS_INPUT = joinpath(FP_TESTS_PATH, "input", "ensemble")
 
 const DEFAULT_PATHNAMES = readlines(joinpath(Flexpart.DEFAULT_FP_DIR, DEFAULT_PATH_PATHNAMES))
 
