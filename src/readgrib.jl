@@ -18,6 +18,16 @@ function grib_area(file::String) :: Vector{<:Float32}
     end
 end
 
+function grib_resolution(file::String)
+    GribFile(file) do reader
+        m = Message(reader)
+        lons, lats = data(m)
+        difflon = lons[2, 1] - lons[1, 1] 
+        difflat = lats[1, 1] - lats[1, 2]
+        round(difflon, digits = 5), round(difflat, digits = 5)
+    end
+end
+
 function get_key_values(file::String, key::String)
     key_values = Vector()
     GribFile(file) do reader
