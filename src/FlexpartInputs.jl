@@ -120,7 +120,7 @@ Available{T}(path) where T = Available{T}(InputFiles{T}(), path)
 function Available{T}(avpath::String, inpath::String; fromdir = true) where T
     fromdir ? _available_from_dir(avpath, inpath, T) : _available_from_file(avpath, inpath, T)
 end
-Available(fpdir::FlexpartDir{T}, fromdir = true) where T = Available{T}(fpdir[:available], fpdir[:input], fromdir)
+Available(fpdir::FlexpartDir{T}, fromdir = true) where T = Available{T}(fpdir[:available], fpdir[:input], fromdir = fromdir)
 
 Base.parent(av::Available) = av.parent
 Base.size(av::Available) = size(parent(av))

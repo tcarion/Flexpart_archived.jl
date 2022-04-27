@@ -49,6 +49,9 @@ function OptionEntry(line::String)
     # Separate the name, value and comment.
     reg = r"(.*?)=(.*?),(\s*!(.*))?"
     m = match(reg, line)
+    if isnothing(m)
+        error("Option entry could not be parsed: $line")
+    end
     na, val, _, doc = m.captures
     name = Symbol(strip(na))
     value = string(strip(val))
@@ -297,6 +300,7 @@ Base.iterate(fpoptions::FlexpartOption, state) = iterate(fpoptions.options, stat
 
 function walkoptions(path::String)
     fileoptions = Vector{Option}()
+    println(path)
     for (root, _, files) in walkdir(path)
         for file in files
             # rel = basename(relpath(path, root))
@@ -433,9 +437,9 @@ function area2outgrid(area::Vector{<:Real}, gridres = 0.01; nested = false)
     outlat0 = area[3]
     Δlon = area[4] - outlon0
     Δlat = area[1] - outlat0
-    Δlon, Δlat = round.([Δlon, Δlat], digits = 7)
+    Δlon, Δlat = round.([Δlon, Δlat], digits = 5)
     (numxgrid, numygrid) = try
-        convert(Int, Δlon / gridres), convert(Int, Δlat / gridres)
+        convert(Int, round(Δlon / gridres)), convert(Int, round(Δlat / gridres))
     catch
         error("gridres must divide area")
     end
