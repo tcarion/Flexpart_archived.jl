@@ -1,5 +1,3 @@
-using GRIB
-
 function grib_area(file::String) :: Vector{<:Float32}
     GribFile(file) do reader
         m = Message(reader)

@@ -62,9 +62,21 @@ function areamesh(lons, lats)
     [maximum(lats), min_lon, minimum(lats), max_lon]
 end
 
-function copyall(src::String, dest::String)
+function copyall(src::AbstractString, dest::AbstractString)
     for el in readdir(src, join=true)
         cp(el, joinpath(dest, basename(el)))
+    end
+    changeperm(dest)
+end
+
+function changeperm(path)
+    for (root, dirs, files) in walkdir(path)
+        for dir in dirs
+            chmod(joinpath(root, dir), 0o755)
+        end
+        for file in files
+            chmod(joinpath(root, file), 0o644)
+        end
     end
 end
 
