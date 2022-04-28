@@ -4,12 +4,14 @@ using DataStructures
 using CSV
 using YAML
 using Dates
+using FlexExtract_jll
+using Pkg.Artifacts
+using PyCall
 
-import ..Flexpart: AbstractPathnames, AbstractFlexDir, create, write, set!
+import ..Flexpart: AbstractPathnames, AbstractFlexDir, write, set!
 export 
     FlexExtractDir, 
     FeControl, 
-    FeSource, 
     MarsRequest,
     set_area!,
     set_steps!,
@@ -19,19 +21,26 @@ export
     prepare,
     retrieve
 
+const PATH_CALC_ETADOT = joinpath(FlexExtract_jll.artifact_dir, "bin")
+const CALC_ETADOT_PARAMETER = :EXEDIR
 
-const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres.app"
+const ROOT_ARTIFACT_FLEXEXTRACT = artifact"flex_extract"
+const PATH_FLEXEXTRACT = joinpath(ROOT_ARTIFACT_FLEXEXTRACT, "flex_extract_v7.1.2")
+
+const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres"
+const PATH_FLEXEXTRACT_CONTROL_DIR = joinpath(PATH_FLEXEXTRACT, "Run", "Control")
+const PATH_FLEXEXTRACT_DEFAULT_CONTROL = joinpath(PATH_FLEXEXTRACT_CONTROL_DIR, FLEX_DEFAULT_CONTROL)
+
 const POLYTOPE_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
 const MARS_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pymars.py")
-    
 
-function scripts(installpath::String)
-    Dict(
-        :run_local => joinpath(installpath, "Run", "run_local.sh"),
-        :submit => joinpath(installpath, "Source", "Python", "submit.py"),
-        :prepare => joinpath(installpath, "Source", "Python", "Mods", "prepare_flexpart.py"),
-    )
-end
+const PATH_PYTHON_SCRIPTS = Dict(
+    :run_local => joinpath(PATH_FLEXEXTRACT, "Run", "run_local.sh"),
+    :submit => joinpath(PATH_FLEXEXTRACT, "Source", "Python", "submit.py"),
+    :prepare => joinpath(PATH_FLEXEXTRACT, "Source", "Python", "Mods", "prepare_flexpart.py"),
+)
+
+const PYTHON_EXECUTABLE = PyCall.python
 
 const ControlItem = Symbol
 const ControlFilePath = String
@@ -75,8 +84,8 @@ end
 function FlexExtractDir(fepath::String)
     files = readdir(fepath, join=true)
     icontrol = findfirst(x -> occursin("CONTROL", x), files .|> basename)
-    isnothing(icontrol) && error("FlexExtract dir has no Control file")
-    FlexExtractDir(fepath, FeControl(files[1]), FePathnames())
+    fecontrol = isnothing(icontrol) ? FeControl(PATH_FLEXEXTRACT_DEFAULT_CONTROL) : FeControl(files[icontrol])
+    FlexExtractDir(fepath, fecontrol, FePathnames())
 end
 FlexExtractDir(fepath::String, fcontrol::FeControl) = FlexExtractDir(fepath, fcontrol, FePathnames())
 FlexExtractDir(fepath::String, fcontrolpath::String, inpath::String, outpath::String) =
@@ -90,25 +99,21 @@ function Base.show(io::IO, mime::MIME"text/plain", fedir::FlexExtractDir)
     print(io, "\n")
     show(io, mime, fedir.control)
 end
-function create(fedir::FlexExtractDir)
-    fepath = fedir.path
-    inputdir = joinpath(fepath, fedir.pathnames[:input])
-    outputdir = joinpath(fepath, fedir.pathnames[:output])
-    (mkpath(inputdir), mkpath(outputdir))
-    write(fedir.control, fepath)
+function add_exec_path(fedir::FlexExtractDir)
+    push!(fedir.control.dict, CALC_ETADOT_PARAMETER => PATH_CALC_ETADOT)
+    write(fedir)
 end
 
-struct FeSource
-    path::String
-    python::String
-    scripts::Dict{Symbol, <:String}
-    FeSource(path::String, python::String) = new(abspath(path), python, scripts(path))
+function create(path::AbstractString)
+    default_pn = FePathnames()
+    mkdir(path)
+    mkdir(joinpath(path, default_pn[:input]))
+    mkdir(joinpath(path, default_pn[:output]))
+    fn = cp(PATH_FLEXEXTRACT_DEFAULT_CONTROL, joinpath(path, FLEX_DEFAULT_CONTROL))
+    chmod(fn, 0o664)
+    FlexExtractDir(path)
 end
-getpath(fesource::FeSource) = fesource.path
 
-function Base.show(io::IO, fesource::FeSource)
-    print(io, "FeSource @ ", fesource.path, "\n", "python : ", fesource.python)
-end
 struct MarsRequest
     dict::OrderedDict{Symbol, Any}
     request_number::Int64
@@ -147,18 +152,18 @@ function save_request(fedir::FlexExtractDir)
     cp(csvp, joinpath(fedir.path, basename(csvp)))
 end
 
-submitcmd(fedir::FlexExtractDir, fesource::FeSource) = `$(fesource.python) $(fesource.scripts[:submit]) $(feparams(fedir))`
+submitcmd(fedir::FlexExtractDir) = `$(PYTHON_EXECUTABLE) $(PATH_PYTHON_SCRIPTS[:submit]) $(feparams(fedir))`
 
-function submit(fedir::FlexExtractDir, fesource::FeSource)
+function submit(fedir::FlexExtractDir)
     # params = feparams(fedir)
     # cmd = `$(fesource.python) $(fesource.scripts[:submit]) $(params)`
-    cmd = submitcmd(fedir, fesource)
+    cmd = submitcmd(fedir)
     println("The following command will be run : $cmd")
     Base.run(cmd)
 end
 
-function submit(f::Function, fedir::FlexExtractDir, fesource::FeSource)
-    cmd = submitcmd(fedir, fesource)
+function submit(f::Function, fedir::FlexExtractDir)
+    cmd = submitcmd(fedir)
     println("The following command will be run : $cmd")
     pipe = Pipe()
 
@@ -169,30 +174,27 @@ function submit(f::Function, fedir::FlexExtractDir, fesource::FeSource)
     run(pipeline(cmd, stdout=pipe, stderr=pipe))
 end
 
-function retrievecmd(fesource::FeSource, request::MarsRequest, dir::String; withmars = false)
+function retrievecmd(request::MarsRequest, dir::String; withmars = false)
     filename = !withmars ? writeyaml(dir, request) : writemars(dir, request)
     if withmars
-        cmd = [
-            fesource.python,
+        args = [
             MARS_RETRIEVE_SCRIPT,
             filename,
         ]
     else
-        cmd = [
-            fesource.python,
+        args = [
             POLYTOPE_RETRIEVE_SCRIPT,
             filename,
             request[:target],
         ]
     end
-    # `$(fesource.python) $(PYTHON_RETRIEVE_SCRIPT) $(filename) $(request[:target]) $redir`
-    `$cmd`
+    `$(PYTHON_EXECUTABLE) $args`
 end
 
-function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothing; withmars = false)
+function _retrieve_helper(requests::MarsRequests, f = nothing; withmars = false)
     mktempdir() do dir
         for req in requests
-            cmd = retrievecmd(fesource, req, dir; withmars = withmars)
+            cmd = retrievecmd(req, dir; withmars = withmars)
 
             if isnothing(f)
                 run(cmd)
@@ -208,17 +210,17 @@ function _retrieve_helper(fesource::FeSource, requests::MarsRequests, f = nothin
         end
     end
 end
-_retrieve_helper(fesource::FeSource, request::MarsRequest, f = nothing; withmars = false) = _retrieve_helper(fesource, [request], f; withmars = withmars)
+_retrieve_helper(request::MarsRequest, f = nothing; withmars = false) = _retrieve_helper([request], f; withmars = withmars)
 
-function retrieve(fesource::FeSource, requests; withmars = false)
-    _retrieve_helper(fesource, requests; withmars = withmars)
+function retrieve(requests; withmars = false)
+    _retrieve_helper(requests; withmars = withmars)
 end
 
-function retrieve(f::Function, fesource::FeSource, requests; withmars = false)
-    _retrieve_helper(fesource, requests, f; withmars = withmars)
+function retrieve(f::Function, requests; withmars = false)
+    _retrieve_helper(requests, f; withmars = withmars)
 end
 
-function preparecmd(fedir::FlexExtractDir, fesource::FeSource)
+function preparecmd(fedir::FlexExtractDir)
     files = readdir(fedir[:input])
     ifile = findfirst(files) do x
         try
@@ -229,16 +231,16 @@ function preparecmd(fedir::FlexExtractDir, fesource::FeSource)
         true
     end
     ppid = split(files[ifile], '.')[4]
-    `$(fesource.python) $(fesource.scripts[:prepare]) $(feparams(fedir)) $(["--ppid", ppid])`
+    `$(PYTHON_EXECUTABLE) $(PATH_PYTHON_SCRIPTS[:prepare]) $(feparams(fedir)) $(["--ppid", ppid])`
 end
 
-function prepare(fedir::FlexExtractDir, fesource::FeSource)
-    cmd = preparecmd(fedir, fesource)
+function prepare(fedir::FlexExtractDir)
+    cmd = preparecmd(fedir)
     run(cmd)
 end
 
-function prepare(f::Function, fedir::FlexExtractDir, fesource::FeSource)
-    cmd = preparecmd(fedir, fesource)
+function prepare(f::Function, fedir::FlexExtractDir)
+    cmd = preparecmd(fedir)
     pipe = Pipe()
 
     @async while true

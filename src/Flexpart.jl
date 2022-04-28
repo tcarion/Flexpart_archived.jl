@@ -25,7 +25,6 @@ export
     DeterministicOutput,
     EnsembleOutput,
     outputpath,
-    FeSource,
     FeControl,
     FlexExtractDir,
     MarsRequest,
