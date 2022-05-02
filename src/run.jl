@@ -1,6 +1,6 @@
 function getcmd(fpdir::FlexpartDir)
     pn_path = pathnames_path(fpdir)
-    `$FLEXPART_EXECUTABLE $pn_path`
+    `$CMD_FLEXPART $pn_path`
 end
 
 """

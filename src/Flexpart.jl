@@ -45,7 +45,7 @@ export
 
 #     $(METHODLIST)
 #     """
-const FLEXPART_EXECUTABLE = FLEXPART()
+const CMD_FLEXPART = FLEXPART()
 # TODO: UPDATE TO REAL ARTIFACT
 const ROOT_ARTIFACT_FLEXPART_DATA = artifact"flexpart_data"
 # const ROOT_ARTIFACT_FLEXPART = "test/flexpart_data"

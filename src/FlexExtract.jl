@@ -23,6 +23,7 @@ export
 
 const PATH_CALC_ETADOT = joinpath(FlexExtract_jll.artifact_dir, "bin")
 const CALC_ETADOT_PARAMETER = :EXEDIR
+const CMD_CALC_ETADOT = FlexExtract_jll.calc_etadot()
 
 const ROOT_ARTIFACT_FLEXEXTRACT = artifact"flex_extract"
 const PATH_FLEXEXTRACT = joinpath(ROOT_ARTIFACT_FLEXEXTRACT, "flex_extract_v7.1.2")
@@ -152,26 +153,31 @@ function save_request(fedir::FlexExtractDir)
     cp(csvp, joinpath(fedir.path, basename(csvp)))
 end
 
+adapt_env(cmd) = addenv(cmd, CMD_CALC_ETADOT.env)
+function adapt_and_run(cmd)
+    cmd_with_new_env = adapt_env(cmd)
+    Base.run(cmd_with_new_env)
+end
+
 submitcmd(fedir::FlexExtractDir) = `$(PYTHON_EXECUTABLE) $(PATH_PYTHON_SCRIPTS[:submit]) $(feparams(fedir))`
 
 function submit(fedir::FlexExtractDir)
     # params = feparams(fedir)
     # cmd = `$(fesource.python) $(fesource.scripts[:submit]) $(params)`
     cmd = submitcmd(fedir)
-    println("The following command will be run : $cmd")
-    Base.run(cmd)
+    adapt_and_run(cmd)
 end
 
 function submit(f::Function, fedir::FlexExtractDir)
     cmd = submitcmd(fedir)
-    println("The following command will be run : $cmd")
     pipe = Pipe()
 
     @async while true
         f(pipe)
     end
 
-    run(pipeline(cmd, stdout=pipe, stderr=pipe))
+    cmd = pipeline(cmd, stdout=pipe, stderr=pipe)
+    adapt_and_run(cmd)
 end
 
 function retrievecmd(request::MarsRequest, dir::String; withmars = false)
@@ -196,17 +202,15 @@ function _retrieve_helper(requests::MarsRequests, f = nothing; withmars = false)
         for req in requests
             cmd = retrievecmd(req, dir; withmars = withmars)
 
-            if isnothing(f)
-                run(cmd)
-            else
+            if !isnothing(f)
                 pipe = Pipe()
 
                 @async while true
                     f(pipe)
                 end
-
-                run(pipeline(cmd, stdout=pipe, stderr=pipe))
+                cmd = pipeline(cmd, stdout=pipe, stderr=pipe)
             end
+            adapt_and_run(cmd)
         end
     end
 end
@@ -236,7 +240,7 @@ end
 
 function prepare(fedir::FlexExtractDir)
     cmd = preparecmd(fedir)
-    run(cmd)
+    adapt_and_run(cmd)
 end
 
 function prepare(f::Function, fedir::FlexExtractDir)
@@ -247,7 +251,7 @@ function prepare(f::Function, fedir::FlexExtractDir)
         f(pipe)
     end
 
-    run(pipeline(cmd, stdout=pipe, stderr=pipe))
+    adapt_and_run(pipeline(cmd, stdout=pipe, stderr=pipe))
 end
 
 function feparams(control::String, input::String, output::String)
