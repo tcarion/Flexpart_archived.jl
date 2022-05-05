@@ -15,6 +15,7 @@ using Rasters
 
 @testset "input" begin include("input.jl") end
 @testset "run" begin include("run.jl") end
+@testset "flex_extract" begin include("flex_extract.jl") end
 # @testset "Flexpart.jl" begin
 
     # ###################################

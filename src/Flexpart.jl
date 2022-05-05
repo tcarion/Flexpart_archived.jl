@@ -69,8 +69,10 @@ const FP_TESTS_ENS_INPUT = joinpath(FP_TESTS_PATH, "input", "ensemble")
 const DEFAULT_PATHNAMES = readlines(joinpath(Flexpart.DEFAULT_FP_DIR, DEFAULT_PATH_PATHNAMES))
 
 function write end
-function create end
-function set! end
+function getpathnames end
+function getpath end
+# function create end
+# function set! end
 
 include("abstracts.jl")
 include("flexpartdir.jl")
@@ -86,6 +88,8 @@ using .FlexpartInputs
 using .FlexpartOptions
 using .FlexpartOutputs
 using .FlexExtract
+
+include("miscellaneous.jl")
 
 end
 

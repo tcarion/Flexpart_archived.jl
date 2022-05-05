@@ -1,7 +1,6 @@
 module FlexpartInputs
 
-using ..Flexpart: FlexpartDir, SimType, Deterministic, Ensemble, dateYY
-import ..Flexpart
+using ..Flexpart: Flexpart, FlexpartDir, SimType, Deterministic, Ensemble, dateYY
 using Dates
 using DocStringExtensions
 
@@ -55,6 +54,9 @@ end
 Base.convert(::Type{DeterministicInput}, in::EnsembleInput) = DeterministicInput(in.time, in.filename, in.dirpath)
 EnsembleInput(path::String) = _input_helper(path, Ensemble)
 
+getpath(input::AbstractInputFile) = joinpath(input.dirpath, input.filename)
+Flexpart.grib_area(input::AbstractInputFile) = Flexpart.grib_area(getpath(input))
+Flexpart.grib_resolution(input::AbstractInputFile) = Flexpart.grib_resolution(getpath(input))
 
 function _input_helper(path::String, T)
     filename = basename(path)

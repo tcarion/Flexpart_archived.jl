@@ -93,22 +93,19 @@ end
 
 function default_run(fpdir::FlexpartDir{Deterministic})
     fpdir[:input] = abspath(FP_TESTS_DETER_INPUT)
+    dummy_run(fpdir)
+end
+
+function dummy_run(fpdir::FlexpartDir{Deterministic})
     avs = Available(fpdir)
     options = FlexpartOption(fpdir)
-    gribpath = joinpath(avs[1].dirpath, avs[1].filename)
-    options["COMMAND"][:COMMAND][:IBDATE] = Dates.format(avs[1].time, "yyyymmdd")
-    options["COMMAND"][:COMMAND][:IBTIME] = Dates.format(avs[1].time, "HHMMSS")
-    options["COMMAND"][:COMMAND][:IEDATE] = Dates.format(avs[end].time, "yyyymmdd")
-    options["COMMAND"][:COMMAND][:IETIME] = Dates.format(avs[end].time, "HHMMSS")
-    options["RELEASES"][:RELEASE][:IDATE1] = Dates.format(avs[1].time, "yyyymmdd")
-    options["RELEASES"][:RELEASE][:ITIME1] = Dates.format(avs[1].time, "HHMMSS")
-    options["RELEASES"][:RELEASE][:IDATE2] = Dates.format(avs[1].time, "yyyymmdd")
-    options["RELEASES"][:RELEASE][:ITIME2] = Dates.format(avs[1].time + Dates.Minute(30), "HHMMSS")
-    options["RELEASES"][:RELEASE][:LAT1] = 50.5
-    options["RELEASES"][:RELEASE][:LAT2] = 50.5
-    options["RELEASES"][:RELEASE][:LON1] = 5.0
-    options["RELEASES"][:RELEASE][:LON2] = 5.0
-    gridres, _ = Flexpart.grib_resolution(gribpath)
+    set_cmd_with_avs!(options, avs)
+    set_release_at_start!(options, avs, Dates.Minute(30))
+    input_area = grib_area(avs[1])
+    lon = input_area[2] + (input_area[4] - input_area[2]) / 2
+    lat = input_area[3] + (input_area[1] - input_area[3]) / 2
+    set_point_release!(options, lon, lat)
+    gridres, _ = Flexpart.grib_resolution(avs[1])
     outgrid = Flexpart.area2outgrid(fpdir, gridres)
     merge!(options["OUTGRID"][:OUTGRID], outgrid)
     Flexpart.write(avs)
