@@ -127,6 +127,7 @@ function Base.show(io::IO, mime::MIME"text/plain", fedir::FlexExtractDir)
 end
 
 function create(path::AbstractString)
+    mkdir(path)
     default_pn = FePathnames()
     mkdir(joinpath(path, default_pn[:input]))
     mkdir(joinpath(path, default_pn[:output]))
