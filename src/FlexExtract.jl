@@ -48,8 +48,9 @@ const PYTHON_EXECUTABLE = PyCall.python
 const ecmwfapi = PyNULL()
 const ecmwf_public_server = PyNULL()
 const ecmwf_mars_server = PyNULL()
-# const polytopeapi = PyNULL()
-# const polytope_client = PyNULL()
+
+const polytopeapi = PyNULL()
+const polytope_client = PyNULL()
 
 function __init__()
     py"""
@@ -59,25 +60,28 @@ function __init__()
     copy!(ecmwfapi, pyimport_conda("ecmwfapi", "ecmwfapi"))
     copy!(ecmwf_public_server, ecmwfapi.ECMWFDataServer())
     copy!(ecmwf_mars_server, ecmwfapi.ECMWFService("mars"))
-    # copy!(polytopeapi, pyimport_conda("polytope.api", "polytope"))
-    # copy!(polytope_client, polytopeapi.Client(address = "polytope.ecmwf.int"))
 
-    # try
-    #     # Would be better to simply redirect stdout to devnull, but it doesn't work
-    #     polytope_client.config.set("quiet", true)
-    #     tmp_cli = polytopeapi.Client(address = "polytope.ecmwf.int", quiet = true)
-    #     # redirect_stdout(devnull) do 
-    #     tmp_cli.list_collections()
-    #     # end
-    # catch e
-    #     if e isa PyCall.PyError
-    #         @warn "It seems you don't have credentials for the polytope api."
-    #     else
-    #         throw(e)
-    #     end
-    # finally
-    #     polytope_client.config.set("quiet", false)
-    # end
+    # Try to import the optional polytope-client package
+    try
+        copy!(polytopeapi, pyimport_conda("polytope.api", "polytope"))
+        copy!(polytope_client, polytopeapi.Client(address = "polytope.ecmwf.int"))
+        try
+            # Would be better to simply redirect stdout to devnull, but it doesn't work
+            tmp_cli = polytopeapi.Client(address = "polytope.ecmwf.int", quiet = true)
+            # redirect_stdout(devnull) do 
+            tmp_cli.list_collections()
+            # end
+        catch e
+            if e isa PyCall.PyError
+                @warn "It seems you don't have credentials for the polytope api."
+            else
+                throw(e)
+            end
+        end
+    catch
+
+    end
+
 
 end
 # const ControlItem = Symbol
@@ -232,9 +236,9 @@ function runmars(req::MarsRequest)
     end
 end
 
-# function runpolytope(req::MarsRequest)
-#     polytope_client.retrieve("ecmwf-mars", parent(req), req[:target])
-# end
+function runpolytope(req::MarsRequest)
+    polytope_client.retrieve("ecmwf-mars", parent(req), _format_target(req[:target]))
+end
 
 # function retrievecmd(request::MarsRequest, dir::String; polytope = false)
 #     filename = !polytope ? writeyaml(dir, request) : writemars(dir, request)
@@ -270,20 +274,24 @@ end
 #         end
 #     end
 # end
-function _retrieve_helper(requests::MarsRequests, f = nothing; polytope = false)
+function _retrieve_helper(requests::MarsRequests; polytope = false)
+
+end
+# _retrieve_helper(request::MarsRequest, f = nothing; polytope = false) = _retrieve_helper([request], f; polytope = polytope)
+
+function retrieve(request::MarsRequest; polytope = false)
+    !polytope ? runmars(request) : runpolytope(request)
+end
+
+function retrieve(requests::MarsRequests; polytope = false)
     for req in requests
-        runmars(req)
+        retrieve(req, polytope = polytope)
     end
 end
-_retrieve_helper(request::MarsRequest, f = nothing; polytope = false) = _retrieve_helper([request], f; polytope = polytope)
 
-function retrieve(requests; polytope = false)
-    _retrieve_helper(requests; polytope = polytope)
-end
-
-function retrieve(f::Function, requests; polytope = false)
-    _retrieve_helper(requests, f; polytope = polytope)
-end
+# function retrieve(f::Function, requests; polytope = false)
+#     _retrieve_helper(requests, f; polytope = polytope)
+# end
 
 function preparecmd(fedir::FlexExtractDir)
     files = readdir(fedir[:input])
