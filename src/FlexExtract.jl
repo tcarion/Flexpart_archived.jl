@@ -33,9 +33,6 @@ const FLEX_DEFAULT_CONTROL = "CONTROL_OD.OPER.FC.eta.highres"
 const PATH_FLEXEXTRACT_CONTROL_DIR = joinpath(PATH_FLEXEXTRACT, "Run", "Control")
 const PATH_FLEXEXTRACT_DEFAULT_CONTROL = joinpath(PATH_FLEXEXTRACT_CONTROL_DIR, FLEX_DEFAULT_CONTROL)
 
-const POLYTOPE_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pypolytope.py")
-const MARS_RETRIEVE_SCRIPT = joinpath(@__DIR__, "pymars.py")
-
 const PATH_PYTHON_SCRIPTS = Dict(
     :run_local => joinpath(PATH_FLEXEXTRACT, "Run", "run_local.sh"),
     :submit => joinpath(PATH_FLEXEXTRACT, "Source", "Python", "submit.py"),
