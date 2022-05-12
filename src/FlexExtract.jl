@@ -130,12 +130,12 @@ function Base.show(io::IO, mime::MIME"text/plain", fedir::FlexExtractDir)
     # show(io, mime, FeControl(fedir))
 end
 
-function create(path::AbstractString)
-    mkdir(path)
+function create(path::AbstractString; force = false)
+    mkpath(path)
     default_pn = FePathnames()
-    mkdir(joinpath(path, default_pn[:input]))
-    mkdir(joinpath(path, default_pn[:output]))
-    fn = cp(default_pn[:controlfile], joinpath(path, basename(default_pn[:controlfile])))
+    mkpath(joinpath(path, default_pn[:input]))
+    mkpath(joinpath(path, default_pn[:output]))
+    fn = cp(default_pn[:controlfile], joinpath(path, basename(default_pn[:controlfile])), force = force)
     chmod(fn, 0o664)
     FlexExtractDir(path, fn)
 end
@@ -146,7 +146,6 @@ struct FeControl{K<:Symbol, V} <: WrappedOrderedDict{K, V}
 end
 FeControl(path::String) = FeControl(abspath(path), control2dict(path))
 FeControl(fedir::FlexExtractDir) = FeControl(fedir[:controlfile])
-parent(fcontrol::FeControl) = fcontrol.dict
 
 function add_exec_path(fcontrol::FeControl)
     push!(fcontrol, CALC_ETADOT_PARAMETER => PATH_CALC_ETADOT)
@@ -176,15 +175,15 @@ end
 MarsRequest(csv::CSV.File)::MarsRequests = [MarsRequest(row) for row in csv]
 MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, normalizenames= true))
 MarsRequest(dict::AbstractDict) = MarsRequest(convert(OrderedDict, dict), 1)
-parent(req::MarsRequest) = req.dict
 
-Base.show(io::IO, mime::MIME"text/plain", fcontrol::WrappedOrderedDict) = show(io, mime, parent(fcontrol))
-Base.show(io::IO, fcontrol::WrappedOrderedDict) = show(io, parent(fcontrol))
-Base.length(fcontrol::WrappedOrderedDict) = length(parent(fcontrol))
-Base.getindex(fcontrol::WrappedOrderedDict, name) = getindex(parent(fcontrol), name)
-Base.setindex!(fcontrol::WrappedOrderedDict, val, name) = setindex!(parent(fcontrol), val, name)
-Base.iterate(fcontrol::WrappedOrderedDict) = iterate(parent(fcontrol))
-Base.iterate(fcontrol::WrappedOrderedDict, state) = iterate(parent(fcontrol), state)
+Base.parent(wrappeddict::WrappedOrderedDict) = wrappeddict.dict
+Base.show(io::IO, mime::MIME"text/plain", fcontrol::WrappedOrderedDict) = show(io, mime, Base.parent(fcontrol))
+Base.show(io::IO, fcontrol::WrappedOrderedDict) = show(io, Base.parent(fcontrol))
+Base.length(fcontrol::WrappedOrderedDict) = length(Base.parent(fcontrol))
+Base.getindex(fcontrol::WrappedOrderedDict, name) = getindex(Base.parent(fcontrol), name)
+Base.setindex!(fcontrol::WrappedOrderedDict, val, name) = setindex!(Base.parent(fcontrol), val, name)
+Base.iterate(fcontrol::WrappedOrderedDict) = iterate(Base.parent(fcontrol))
+Base.iterate(fcontrol::WrappedOrderedDict, state) = iterate(Base.parent(fcontrol), state)
 
 function save_request(fedir::FlexExtractDir)
     csvp = csvpath(fedir)
@@ -224,8 +223,8 @@ function submit(f::Function, fedir::FlexExtractDir)
         f(pipe)
     end
 
-    cmd = pipeline(cmd, stdout=pipe, stderr=pipe)
-    adapt_and_run(cmd)
+    cmd = pipeline(adapt_env(cmd), stdout=pipe, stderr=pipe)
+    run(cmd)
 end
 
 function runmars(req::MarsRequest)

@@ -35,8 +35,8 @@ function _run_helper(fpdir::FlexpartDir{Deterministic}; f = nothing)
 
     write(tempfpdir)
     cmd = getcmd(tempfpdir)
-    println("Will run Flexpart with following pathnames: ")
-    println(tempfpdir.pathnames)
+    # println("Will run Flexpart with following pathnames: ")
+    # println(tempfpdir.pathnames)
     if isnothing(f)
         Base.run(cmd)
     else
