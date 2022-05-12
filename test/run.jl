@@ -3,4 +3,5 @@ using Flexpart
 using Test
 using Dates
 
+tmpdir = FlexpartDir()
 default_run(tmpdir)

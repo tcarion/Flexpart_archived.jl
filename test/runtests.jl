@@ -14,6 +14,7 @@ using Rasters
 # outgrid = Flexpart.Outgrid(5.009, 50.353, 1111, 593, 0.001, 0.001, [100.0])
 
 @testset "input" begin include("input.jl") end
+@testset "options" begin include("options.jl") end
 @testset "run" begin include("run.jl") end
 @testset "flex_extract" begin include("flex_extract.jl") end
 # @testset "Flexpart.jl" begin
