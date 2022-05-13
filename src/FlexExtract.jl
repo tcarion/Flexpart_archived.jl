@@ -2,7 +2,6 @@ module FlexExtract
 
 using DataStructures
 using CSV
-using YAML
 using Dates
 using FlexExtract_jll
 using Pkg.Artifacts

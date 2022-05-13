@@ -14,10 +14,6 @@ FlexExtract_jll = "928114cd-b949-50c5-8a7b-63c9d706fec3"
 GRIB = "b16dfd50-4035-11e9-28d4-9dfe17e6779b"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
-YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 julia = "1"
@@ -28,4 +24,4 @@ SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Rasters"]
+test = ["Test"]

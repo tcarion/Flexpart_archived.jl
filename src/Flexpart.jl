@@ -4,10 +4,8 @@ module Flexpart
 using GRIB
 using Pkg.Artifacts
 using Dates
-using RecipesBase
 using DataStructures: OrderedDict
 using DocStringExtensions
-using Rasters
 using FLEXPART_jll
 # using Debugger
 # using PyPlot

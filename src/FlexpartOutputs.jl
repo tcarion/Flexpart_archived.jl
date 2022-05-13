@@ -3,7 +3,6 @@ module FlexpartOutputs
 using Flexpart: FlexpartDir, SimType, Deterministic, Ensemble
 using Dates
 using DocStringExtensions
-using Rasters
 
 export
     AbstractOutputFile,
