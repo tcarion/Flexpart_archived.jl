@@ -7,6 +7,8 @@ using Dates
 using FlexExtract_jll
 using Pkg.Artifacts
 using PyCall
+import EcmwfRequests
+using EcmwfRequests: EcmwfRequestType
 
 import ..Flexpart: AbstractPathnames, AbstractFlexDir, write, writelines, outer_vals, getpathnames
 export 
@@ -42,51 +44,59 @@ const PATH_PYTHON_SCRIPTS = Dict(
 const PYTHON_EXECUTABLE = PyCall.python
 
 
-const ecmwfapi = PyNULL()
-const ecmwf_public_server = PyNULL()
-const ecmwf_mars_server = PyNULL()
+# const ecmwfapi = PyNULL()
+# const ecmwf_public_server = PyNULL()
+# const ecmwf_mars_server = PyNULL()
 
-const polytopeapi = PyNULL()
-const polytope_client = PyNULL()
+# const polytopeapi = PyNULL()
+# const polytope_client = PyNULL()
 
-function __init__()
-    py"""
-    import ssl
-    ssl._create_default_https_context = ssl._create_unverified_context
-    """
-    copy!(ecmwfapi, pyimport_conda("ecmwfapi", "ecmwfapi"))
-    copy!(ecmwf_public_server, ecmwfapi.ECMWFDataServer())
-    copy!(ecmwf_mars_server, ecmwfapi.ECMWFService("mars"))
+# function __init__()
+#     py"""
+#     import ssl
+#     ssl._create_default_https_context = ssl._create_unverified_context
+#     """
+#     copy!(ecmwfapi, pyimport_conda("ecmwfapi", "ecmwfapi"))
+#     copy!(ecmwf_public_server, ecmwfapi.ECMWFDataServer())
+#     copy!(ecmwf_mars_server, ecmwfapi.ECMWFService("mars"))
 
-    # Try to import the optional polytope-client package
-    try
-        copy!(polytopeapi, pyimport_conda("polytope.api", "polytope"))
-        copy!(polytope_client, polytopeapi.Client(address = "polytope.ecmwf.int"))
-        try
-            # Would be better to simply redirect stdout to devnull, but it doesn't work
-            tmp_cli = polytopeapi.Client(address = "polytope.ecmwf.int", quiet = true)
-            # redirect_stdout(devnull) do 
-            tmp_cli.list_collections()
-            # end
-        catch e
-            if e isa PyCall.PyError
-                @warn "It seems you don't have credentials for the polytope api."
-            else
-                throw(e)
-            end
-        end
-    catch
+#     # Try to import the optional polytope-client package
+#     try
+#         copy!(polytopeapi, pyimport_conda("polytope.api", "polytope"))
+#         copy!(polytope_client, polytopeapi.Client(address = "polytope.ecmwf.int"))
+#         try
+#             # Would be better to simply redirect stdout to devnull, but it doesn't work
+#             tmp_cli = polytopeapi.Client(address = "polytope.ecmwf.int", quiet = true)
+#             # redirect_stdout(devnull) do 
+#             tmp_cli.list_collections()
+#             # end
+#         catch e
+#             if e isa PyCall.PyError
+#                 @warn "It seems you don't have credentials for the polytope api."
+#             else
+#                 throw(e)
+#             end
+#         end
+#     catch
 
-    end
+#     end
 
 
-end
+# end
 # const ControlItem = Symbol
 # const ControlFilePath = String
 
 # const ControlFields= OrderedDict{ControlItem, Any}
 
 abstract type WrappedOrderedDict{K,V} <: AbstractDict{K,V} end
+Base.parent(wrappeddict::WrappedOrderedDict) = wrappeddict.dict
+Base.show(io::IO, mime::MIME"text/plain", fcontrol::WrappedOrderedDict) = show(io, mime, Base.parent(fcontrol))
+Base.show(io::IO, fcontrol::WrappedOrderedDict) = show(io, Base.parent(fcontrol))
+Base.length(fcontrol::WrappedOrderedDict) = length(Base.parent(fcontrol))
+Base.getindex(fcontrol::WrappedOrderedDict, name) = getindex(Base.parent(fcontrol), name)
+Base.setindex!(fcontrol::WrappedOrderedDict, val, name) = setindex!(Base.parent(fcontrol), val, name)
+Base.iterate(fcontrol::WrappedOrderedDict) = iterate(Base.parent(fcontrol))
+Base.iterate(fcontrol::WrappedOrderedDict, state) = iterate(Base.parent(fcontrol), state)
 
 mutable struct FePathnames <: AbstractPathnames
     input::AbstractString
@@ -150,42 +160,28 @@ function add_exec_path(fcontrol::FeControl)
 end
 add_exec_path(fedir::FlexExtractDir) = add_exec_path(FeControl(fedir))
 
-struct MarsRequest{K<:Symbol, V} <: WrappedOrderedDict{K, V}
-    dict::OrderedDict{K, V}
-    request_number::Int64
-end
-
-const MarsRequests = Vector{<:MarsRequest}
-
-function MarsRequest(row::CSV.Row)
-    d = OrderedDict{Symbol, Any}()
-    for name in propertynames(row)
-        value = row[name]
-        valuestr = row[name] |> string |> strip
-        valuestr |> isempty && continue
-        valuestr = valuestr[1]=='/' ? "\"" * valuestr * "\""  : valuestr
-        name = name == :marsclass ? :class : name
-        push!(d, name => valuestr)
-    end
-    MarsRequest(d, parse(Int64, pop!(d, :request_number)))
-end
-MarsRequest(csv::CSV.File)::MarsRequests = [MarsRequest(row) for row in csv]
-MarsRequest(csvpath::String)::MarsRequests = MarsRequest(CSV.File(csvpath, normalizenames= true))
-MarsRequest(dict::AbstractDict) = MarsRequest(convert(OrderedDict, dict), 1)
-
-Base.parent(wrappeddict::WrappedOrderedDict) = wrappeddict.dict
-Base.show(io::IO, mime::MIME"text/plain", fcontrol::WrappedOrderedDict) = show(io, mime, Base.parent(fcontrol))
-Base.show(io::IO, fcontrol::WrappedOrderedDict) = show(io, Base.parent(fcontrol))
-Base.length(fcontrol::WrappedOrderedDict) = length(Base.parent(fcontrol))
-Base.getindex(fcontrol::WrappedOrderedDict, name) = getindex(Base.parent(fcontrol), name)
-Base.setindex!(fcontrol::WrappedOrderedDict, val, name) = setindex!(Base.parent(fcontrol), val, name)
-Base.iterate(fcontrol::WrappedOrderedDict) = iterate(Base.parent(fcontrol))
-Base.iterate(fcontrol::WrappedOrderedDict, state) = iterate(Base.parent(fcontrol), state)
-
 function save_request(fedir::FlexExtractDir)
     csvp = csvpath(fedir)
     cp(csvp, joinpath(fedir.path, basename(csvp)))
 end
+
+function EcmwfRequests.EcmwfRequest(row::CSV.Row)
+    d = EcmwfRequestType()
+    for name in propertynames(row)
+        valuestr = row[name] |> string |> strip
+        valuestr |> isempty && continue
+        valuestr = valuestr[1]=='/' ? "\"" * valuestr * "\""  : valuestr
+        key = name == :marsclass ? "class" : name
+        push!(d, string(key) => valuestr)
+    end
+    # flex_extract add a :request_number column that makes retrieval fail
+    pop!(d, "request_number")
+    d
+    # MarsRequest(d, parse(Int64, pop!(d, :request_number)))
+end
+allrequests(csv::CSV.File) = EcmwfRequests.EcmwfRequest.(collect(csv))
+ferequests(path::String) = allrequests(CSV.File(path, normalizenames= true))
+# MarsRequest(dict::AbstractDict) = MarsRequest(convert(OrderedDict, dict), 1)
 
 adapt_env(cmd) = addenv(cmd, CMD_CALC_ETADOT.env)
 function adapt_and_run(cmd)
@@ -224,70 +220,36 @@ function submit(f::Function, fedir::FlexExtractDir)
     run(cmd)
 end
 
-function runmars(req::MarsRequest)
-    if occursin("None", req[:dataset])
-        ecmwf_mars_server.execute(parent(req), _format_target(req[:target]))
-    else
-        ecmwf_public_server.retrieve(parent(req))
-    end
+function retrieve(request; polytope = false)
+    !polytope ? EcmwfRequests.runmars(request) : EcmwfRequests.runpolytope(request)
 end
 
-function runpolytope(req::MarsRequest)
-    polytope_client.retrieve("ecmwf-mars", parent(req), _format_target(req[:target]))
-end
-
-# function retrievecmd(request::MarsRequest, dir::String; polytope = false)
-#     filename = !polytope ? writeyaml(dir, request) : writemars(dir, request)
-#     if polytope
-#         args = [
-#             MARS_RETRIEVE_SCRIPT,
-#             filename,
-#         ]
-#     else
-#         args = [
-#             POLYTOPE_RETRIEVE_SCRIPT,
-#             filename,
-#             request[:target],
-#         ]
-#     end
-#     `$(PYTHON_EXECUTABLE) $args`
-# end
-
-# function _retrieve_helper(requests::MarsRequests, f = nothing; polytope = false)
-#     mktempdir() do dir
-#         for req in requests
-#             cmd = retrievecmd(req, dir; polytope = polytope)
-
-#             if !isnothing(f)
-#                 pipe = Pipe()
-
-#                 @async while true
-#                     f(pipe)
-#                 end
-#                 cmd = pipeline(cmd, stdout=pipe, stderr=pipe)
-#             end
-#             adapt_and_run(cmd)
-#         end
-#     end
-# end
-function _retrieve_helper(requests::MarsRequests; polytope = false)
-
-end
-# _retrieve_helper(request::MarsRequest, f = nothing; polytope = false) = _retrieve_helper([request], f; polytope = polytope)
-
-function retrieve(request::MarsRequest; polytope = false)
-    !polytope ? runmars(request) : runpolytope(request)
-end
-
-function retrieve(requests::MarsRequests; polytope = false)
+function retrieve(requests::AbstractVector; polytope = false)
     for req in requests
         retrieve(req, polytope = polytope)
     end
 end
 
-# function retrieve(f::Function, requests; polytope = false)
-#     _retrieve_helper(requests, f; polytope = polytope)
-# end
+# To be tested on julia v1.7
+function retrieve(f::Function, req; polytope = false)
+    pipe = Pipe()
+
+    redirect_stdout(pipe) do 
+        retrieve(req; polytope = polytope)
+    end
+
+    @async while true
+        f(pipe)
+    end
+end
+
+function retrieve(fedir::FlexExtractDir; polytope = false)
+    cpath = csvpath(fedir)
+    !isfile(cpath) && error("No flex_extract csv requests file found at $cpath")
+    requests = ferequests(cpath)
+
+    retrieve(requests, polytope = polytope)
+end
 
 function preparecmd(fedir::FlexExtractDir)
     files = readdir(fedir[:input])
@@ -375,44 +337,8 @@ end
 
 # write(fedir::FlexExtractDir) = write(FeControl(fedir))
 
-function write(dest::String, req::MarsRequest)
-    path = joinpath(dest, "mars_req_$(req.request_number)")
-    writelines(path, format(req))
-end
-
-function write(dest::String, reqs::MarsRequests)
-    for req in reqs
-        write(dest, req)
-    end
-end
-
-function writeyaml(dest::String, req::MarsRequest) 
-    filename = joinpath(dest, "mars_req_$(req.request_number)")
-    YAML.write_file(filename, req.dict)
-    filename
-end
-function writemars(dest::String, req::MarsRequest)
-    filename = joinpath(dest, "mars_req_$(req.request_number)")
-    open(filename, "w") do io
-        for (k, v) in req
-            Base.write(io, "$k $v\n")
-        end
-    end
-    filename
-end
-
 function format(fcontrol::FeControl)::Vector{String}
     ["$(uppercase(String(k))) $v" for (k,v) in fcontrol]
-end
-
-function format(req::MarsRequest)::Vector{String}
-    str = ["retrieve,"]
-    for (name, value) in req
-        line = "$name=$value,"
-        push!(str, line)
-    end
-    str[end] = strip(str[end], ',')
-    str
 end
 
 function set_area!(fcontrol::FeControl, area; grid = nothing)
@@ -490,5 +416,4 @@ set_steps!(fedir::FlexExtractDir, startdate, enddate, timestep) = set_steps!(fed
 #     opt < 10 ? "0$(opt)" : "$(opt)"
 # end
 
-_format_target(target) = replace(target, "\"" => "") 
 end

@@ -1,4 +1,5 @@
 using Flexpart.FlexExtract
+using EcmwfRequests
 using Test
 
 DEFAULT_FIRST_KEY = :START_DATE
@@ -36,11 +37,19 @@ end
     @test isfile(csvpath(fedir))
 end
 
-@testset "Convert CSV to MarsRequest, handle MarsRquest" begin
-    requests = MarsRequest(csvpath(fedir))
+@testset "Convert CSV to EcmwfRequest, handle EcmwfRequest" begin
+    requests = FlexExtract.ferequests(csvpath(fedir))
     firstreq = requests[1]
-    @test firstreq[:stream] == "OPER"
-    firstreq[:class] = "ERA"
-    newf = FlexExtract.write(joinpath(fedir.path), firstreq)
+    @test firstreq["stream"] == "OPER"
+    firstreq["class"] = "ERA"
+    newf = EcmwfRequests.writereq(joinpath(fedir.path, "req.yaml"), firstreq)
     @test isfile(newf)
 end
+
+# Only Julia 1.7
+# open("test.txt", "w") do file
+#     retrieve(req) do io
+#         line = readline(io, keep=true)
+#         write(file, io)
+#     end
+# end
