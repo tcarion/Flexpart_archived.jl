@@ -1,20 +1,3 @@
-module FlexpartOutputs
-
-using Flexpart: FlexpartDir, SimType, Deterministic, Ensemble
-using Dates
-using DocStringExtensions
-
-export
-    AbstractOutputFile,
-    OutputFiles,
-    DeterministicOutput,
-    EnsembleOutput,
-    outputpath,
-    ncf_files,
-    getpath,
-    deltamesh
-
-
 abstract type AbstractOutputFile{SimType} end
 Base.convert(::Type{<:AbstractString}, output::AbstractOutputFile) = output.name
 """
@@ -168,5 +151,3 @@ end
 #     end
 #     return split
 # end
-
-end

@@ -152,6 +152,8 @@ struct FeControl{K<:Symbol, V} <: WrappedOrderedDict{K, V}
 end
 FeControl(path::String) = FeControl(abspath(path), control2dict(path))
 FeControl(fedir::FlexExtractDir) = FeControl(fedir[:controlfile])
+FeControl() = FeControl(PATH_FLEXEXTRACT_DEFAULT_CONTROL)
+
 
 function add_exec_path(fcontrol::FeControl)
     push!(fcontrol, CALC_ETADOT_PARAMETER => PATH_CALC_ETADOT)

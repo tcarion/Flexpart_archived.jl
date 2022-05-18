@@ -18,16 +18,15 @@ export
     InputFiles,
     Available,
     FlexpartOption,
+    FeControl,
+    FlexExtractDir,
+    set_steps!
+
+export    
     AbstractOutputFile,
     OutputFiles,
     DeterministicOutput,
-    EnsembleOutput,
-    outputpath,
-    FeControl,
-    FlexExtractDir,
-    MarsRequest,
-    set_steps!
-
+    EnsembleOutput
 # @template TYPES =
 #     """
 #     # Summary
@@ -78,13 +77,13 @@ include("readgrib.jl")
 include("utils.jl")
 include("FlexpartInputs.jl")
 include("FlexpartOptions.jl")
-include("FlexpartOutputs.jl")
+include("outputs.jl")
 include("FlexExtract.jl")
 include("run.jl")
 
 using .FlexpartInputs
 using .FlexpartOptions
-using .FlexpartOutputs
+# using .FlexpartOutputs
 using .FlexExtract
 
 include("miscellaneous.jl")
