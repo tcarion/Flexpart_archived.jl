@@ -46,3 +46,16 @@ function area2outgrid(fpdir::FlexpartDir, gridres::Real; nested = false)
 
     area2outgrid(area, gridres; nested)
 end
+
+function remove_unused_species!(fpoptions::FlexpartOption)
+    nspec = parse(Int, fpoptions["RELEASES"][:RELEASES_CTRL][:SPECNUM_REL].value)
+    for (k, v) in fpoptions.options
+        try
+            specnum = parse(Int, k[end-2:end])
+            if !(nspec == specnum)
+                pop!(fpoptions.options, k)
+            end
+        catch
+        end
+    end
+end
