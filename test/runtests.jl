@@ -14,7 +14,7 @@ using Dates
 
 @testset "input" begin include("input.jl") end
 @testset "options" begin include("options.jl") end
-@testset "run" begin include("run.jl") end
+@testset "run and output" begin include("outputs.jl") end
 @testset "flex_extract" begin include("flex_extract.jl") end
 # @testset "Flexpart.jl" begin
 
