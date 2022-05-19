@@ -76,6 +76,26 @@ function FlexpartDir{T}() where T
 end
 FlexpartDir() = FlexpartDir{Deterministic}()
 
+"""
+    $(TYPEDSIGNATURES)
+
+Apply the function `f` to a `FlexpartDir` created in a temporary directory, and remove all of its content upon completion.
+
+# Examples
+julia> FlexpartDir() do fpdir
+            default_run(fpdir)
+        end
+```
+"""
+function FlexpartDir{T}(f::Function) where T
+    mktempdir() do path
+        copyall(DEFAULT_FP_DIR, path)
+        fpdir = FlexpartDir(path)
+        f(fpdir)
+    end
+end
+FlexpartDir(f::Function) = FlexpartDir{Deterministic}(f)
+
 function Base.show(io::IO, mime::MIME"text/plain", fpdir::FlexpartDir) 
     println(io,"$(typeof(fpdir)) @ $(fpdir.path)")
     show(io, mime, getpathnames(fpdir))
