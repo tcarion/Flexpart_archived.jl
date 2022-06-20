@@ -65,6 +65,8 @@ const FP_TESTS_ENS_INPUT = joinpath(FP_TESTS_PATH, "input", "ensemble")
 
 const DEFAULT_PATHNAMES = readlines(joinpath(Flexpart.DEFAULT_FP_DIR, DEFAULT_PATH_PATHNAMES))
 
+const MAX_PARTICLES = 2000000
+
 function write end
 function getpathnames end
 function getpath end
