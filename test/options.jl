@@ -31,3 +31,8 @@ end
 @testset "Write options" begin
     Flexpart.write(fpoptions)
 end
+
+@testset "other" begin
+    @test occursin("O3", Flexpart.species_name()[1])
+    @test Flexpart.specie_number("CH4") == 26
+end

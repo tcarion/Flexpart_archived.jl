@@ -25,6 +25,10 @@ run(f::Function, fpdir::FlexpartDir{Deterministic}) = _run_helper(fpdir; f = f)
 
 run(fpdir::FlexpartDir{Ensemble}) = _run_helper(fpdir)
 
+run() = FlexpartDir() do fpdir
+    default_run(fpdir)
+end
+
 function _run_helper(fpdir::FlexpartDir{Deterministic}; f = nothing)
     # println("The following command will be run : $cmd")
     tempfpdir = FlexpartDir()
@@ -99,7 +103,7 @@ end
 function dummy_run(fpdir::FlexpartDir{Deterministic})
     avs = Available(fpdir)
     options = FlexpartOption(fpdir)
-    set_cmd_with_avs!(options, avs)
+    set_cmd_dates!(options, avs)
     set_release_at_start!(options, avs, Dates.Minute(30))
     input_area = grib_area(avs[1])
     lon = input_area[2] + (input_area[4] - input_area[2]) / 2
