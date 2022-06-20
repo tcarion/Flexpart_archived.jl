@@ -1,9 +1,11 @@
-function set_cmd_with_avs!(options::FlexpartOption, avs::Available)
-    options["COMMAND"][:COMMAND][:IBDATE] = Dates.format(avs[1].time, "yyyymmdd")
-    options["COMMAND"][:COMMAND][:IBTIME] = Dates.format(avs[1].time, "HHMMSS")
-    options["COMMAND"][:COMMAND][:IEDATE] = Dates.format(avs[end].time, "yyyymmdd")
-    options["COMMAND"][:COMMAND][:IETIME] = Dates.format(avs[end].time, "HHMMSS")
+function set_cmd_with_dates!(options::FlexpartOption, start::DateTime, stop::DateTime)
+    options["COMMAND"][:COMMAND][:IBDATE] = Dates.format(start, "yyyymmdd")
+    options["COMMAND"][:COMMAND][:IBTIME] = Dates.format(start, "HHMMSS")
+    options["COMMAND"][:COMMAND][:IEDATE] = Dates.format(stop, "yyyymmdd")
+    options["COMMAND"][:COMMAND][:IETIME] = Dates.format(stop, "HHMMSS")
 end
+
+set_cmd_with_avs!(options::FlexpartOption, avs::Available) = set_cmd_with_dates!(options::FlexpartOption, avs[1].time, avs[end].time)
 
 function set_release_at_start!(options::FlexpartOption, avs::Available, duration::Dates.AbstractTime)
     options["RELEASES"][:RELEASE][:IDATE1] = Dates.format(avs[1].time, "yyyymmdd")
@@ -19,7 +21,7 @@ function set_point_release!(options::FlexpartOption, lon, lat)
     options["RELEASES"][:RELEASE][:LON2] = lon 
 end
 
-function area2outgrid(area::Vector{<:Real}, gridres = 0.01; nested = false)
+function area2outgrid(area::Vector{<:Real}, gridres::Real = 0.01; nested = false)
     outlon0 = area[2]
     outlat0 = area[3]
     Δlon = area[4] - outlon0
