@@ -5,9 +5,12 @@ import ..Flexpart
 
 using DataStructures: OrderedDict, DefaultOrderedDict
 using Dates
+using DocStringExtensions
 
 export
-    FlexpartOption
+    FlexpartOption,
+    species_name,
+    specie_number
 
 struct NotNamelistError <: Exception
     filename::String
@@ -81,6 +84,18 @@ end
 
 # Don't error if only one suboption for the current key (could be done with a macro)
 function Base.getindex(group::Vector{<:OptionEntriesType}, k::Symbol)
+    # try
+    #     group[1][k]
+    # catch e
+    #     if length(group) == 1
+    #         group[1][k]
+    #     elseif length(group) > 1
+    #         throw(MultipleSubOptionError())
+    #     else
+    #         rethrow()
+    #     end
+    # end
+
     if length(group) == 1
         group[1][k]
     else
@@ -88,6 +103,18 @@ function Base.getindex(group::Vector{<:OptionEntriesType}, k::Symbol)
     end
 end
 function Base.setindex!(group::Vector{<:OptionEntriesType}, v, k::Symbol)
+    # try
+    #     setindex!(group[1], v, k)
+    # catch e
+    #     if length(group) == 1
+    #         setindex!(group[1], v, k)
+    #     elseif length(group) > 1
+    #         throw(MultipleSubOptionError())
+    #     else
+    #         rethrow()
+    #     end
+    # end
+
     if length(group) == 1
         setindex!(group[1], v, k)
     else
@@ -116,7 +143,46 @@ FlexpartOption(path::String) = FlexpartOption(path, walkoptions(path))
 
 FlexpartOption(fpdir::FlexpartDir) = FlexpartOption(fpdir[:options])
 
-Base.getindex(fpopt::FlexpartOption, name) = getindex(fpopt.options, name)
+Base.parent(fpopt::FlexpartOption) = fpopt.options
+Base.getindex(fpopt::FlexpartOption, name) = getindex(parent(fpopt), name)
+Base.size(fpopt::FlexpartOption) = size(parent(fpopt))
+Base.length(fpopt::FlexpartOption) = length(parent(fpopt))
+Base.iterate(fpopt::FlexpartOption, args...) = iterate(parent(fpopt), args...)
+Base.filter(f::Any, fpopt::FlexpartOption, args...) = filter(f, parent(fpopt), args...)
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return the names of the species that are available by default with Flexpart
+"""
+function species_name()
+    FlexpartDir() do fpdir
+        [v[:SPECIES_PARAMS][:PSPECIES].value for (k, v) in FlexpartOption(fpdir) if occursin("SPECIES", k)]
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+
+Return specie number needed for the RELEASES options from the name `specie`.
+
+# Examples
+```jldoctest
+julia> Flexpart.specie_number("CH4")
+26
+```
+"""
+function specie_number(specie::String)
+    fp_species = Flexpart.species_name()
+    if !(specie in replace.(fp_species, "\"" => ""))
+        error("the specie name $specie has not been found in Flexpart default species")
+    end
+    FlexpartDir() do fpdir
+        allspecies = filter(p -> occursin("SPECIES", first(p)), FlexpartOption(fpdir))
+        specie_opt = filter(p -> occursin(specie, p[2][:SPECIES_PARAMS][:PSPECIES].value), allspecies)
+        parse(Int, first(first(specie_opt))[end-2:end])
+    end
+end
 
 function walkoptions(path::String)
     dict = OptionType()
