@@ -12,6 +12,8 @@ export
     species_name,
     specie_number
 
+
+const DEFAULT_OPTIONS_PATH = joinpath(Flexpart.DEFAULT_FP_DIR, "options")
 struct NotNamelistError <: Exception
     filename::String
 end
@@ -128,7 +130,7 @@ function Base.merge!(group::Vector{<:OptionEntriesType}, dict::AbstractDict)
         throw(MultipleSubOptionError())
     end
 end
-struct FlexpartOption
+mutable struct FlexpartOption
     dirpath::String
     options::OptionType
 end
@@ -142,6 +144,8 @@ end
 FlexpartOption(path::String) = FlexpartOption(path, walkoptions(path))
 
 FlexpartOption(fpdir::FlexpartDir) = FlexpartOption(fpdir[:options])
+
+FlexpartOption() = FlexpartOption("", walkoptions(DEFAULT_OPTIONS_PATH))
 
 Base.parent(fpopt::FlexpartOption) = fpopt.options
 Base.getindex(fpopt::FlexpartOption, name) = getindex(parent(fpopt), name)
@@ -248,6 +252,7 @@ function format(opt::OptionType)
 end
 
 function Flexpart.write(flexpartoption::FlexpartOption, newpath::String = "")
+    flexpartoption.dirpath == "" && error("Path to option directory is empty")
     options_dir = newpath == "" ? flexpartoption.dirpath : newpath
     try
         mkdir(options_dir)

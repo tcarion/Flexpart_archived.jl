@@ -3,6 +3,7 @@ using Flexpart
 using Test
 
 fpdir = FlexpartDir()
+fpoptions_def = FlexpartOption()
 fpoptions = FlexpartOption(fpdir)
 
 @testset "Access and change option values" begin
